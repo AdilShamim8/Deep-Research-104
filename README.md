@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔬 Deep Research AI System
+# Project 4 - Build "Deep Research" Capability with Web Search and Reasoning Models
 
 ### Production-grade autonomous research with web search,
 ### reasoning models, and inference-time scaling
