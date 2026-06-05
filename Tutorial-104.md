@@ -1,4 +1,4 @@
-# Project 4: Build "Deep Research" Capability with Web Search and Reasoning Models
+# Complete Tutorial 4: Build "Deep Research" Capability with Web Search and Reasoning Models
 
 ## The Most Beginner-Friendly, End-to-End, Deep Tutorial — DEFINITIVE VERSION |
 
