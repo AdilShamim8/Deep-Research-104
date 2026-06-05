@@ -2,9 +2,6 @@
 
 # Project 4: Build "Deep Research" Capability with Web Search and Reasoning Models
 
-**Production-grade autonomous research engine combining**
-**web search, reasoning models, and inference-time scaling**
-
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688.svg)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -14,6 +11,11 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Ruff](https://img.shields.io/badge/linting-ruff-FCC21B.svg)](https://github.com/astral-sh/ruff)
 [![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)](htmlcov/index.html)
+
+**Production-grade autonomous research engine combining**
+**web search, reasoning models, and inference-time scaling**
+> ### To better understand this project, first visit this link for a visualization of the project and what I built: [Link](https://deepresearch1.space-z.ai/)
+> ### Then, if you want to learn each topic in a tutorial format, read this file thoroughly: [Link](https://github.com/AdilShamim8/Build-Deep-Research-104/blob/main/Tutorial-104.md)
 
 <br/>
 
