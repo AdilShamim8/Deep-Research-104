@@ -145,7 +145,7 @@ A Deep Research AI does all of this **automatically**.
 
 ---
 
-# 🧠 CHAPTER 2: Reasoning and Thinking LLMs
+#  CHAPTER 2: Reasoning and Thinking LLMs
 
 ---
 
@@ -524,7 +524,7 @@ Feature Comparison:
 
 ---
 
-# 🔬 CHAPTER 3: Inference-Time Techniques
+#  CHAPTER 3: Inference-Time Techniques
 
 ---
 
@@ -1889,7 +1889,7 @@ print(answer)
 
 ---
 
-# 📊 CHAPTER 3 — Summary Table
+# CHAPTER 3 — Summary Table
 
 ```
 ┌──────────────────────┬────────────────────┬────────────────┬─────────────────┐
@@ -1906,11 +1906,11 @@ print(answer)
 
 ---
 
-# 🔴 END OF PART 1
+#  END OF PART 1
 
 ---
 
-## ✅ What We Covered in Part 1:
+## What We Covered in Part 1:
 
 ```
 ✅ Chapter 1: What is Deep Research Capability?
@@ -1934,35 +1934,13 @@ print(answer)
    - Search Against a Verifier
    - Combined techniques
 ```
-
----
-
-## 🚀 Coming in Part 2:
-
-```
-📌 Part 2 Will Cover:
-
-├── Training-Time Techniques
-│   ├── SFT on reasoning data (STaR)
-│   ├── Reinforcement Learning with verifier
-│   ├── Reward Modeling (ORM vs PRM)
-│   ├── Self-refinement
-│   └── Internalizing Search (Meta-CoT)
-│
-└── Local Deployment
-    ├── Running DeepSeek-R1 locally with Ollama
-    ├── Quantization explained simply
-    ├── Full Deep Research system assembly
-    └── Complete project code
-```
-
-# 🚀 Project 4: Deep Research Capability — PART 2
+#  Project 4: Deep Research Capability — PART 2
 
 ## Training-Time Techniques & Local Deployment
 
 ---
 
-# 📚 TABLE OF CONTENTS (Part 2)
+#  TABLE OF CONTENTS (Part 2)
 
 ```
 PART 2 COVERS:
@@ -1984,7 +1962,7 @@ PART 2 COVERS:
 
 ---
 
-# 🧠 CHAPTER 4: Training-Time Techniques
+#  CHAPTER 4: Training-Time Techniques
 
 ---
 
@@ -4215,7 +4193,7 @@ generator = MetaCoTDataGenerator(model="gpt-4o")
 
 ---
 
-# 💻 CHAPTER 5: Local Deployment
+# CHAPTER 5: Local Deployment
 
 ---
 
@@ -5282,21 +5260,21 @@ class ReportSynthesizer:
 ║                    DEEP RESEARCH REPORT                      ║
 ╚══════════════════════════════════════════════════════════════╝
 
-📌 RESEARCH QUESTION:
+RESEARCH QUESTION:
 {report.main_question}
 
-📊 RESEARCH STATS:
+RESEARCH STATS:
 • Sources consulted: {report.total_sources_consulted}
 • Aspects investigated: {len(report.sections)}
 • Confidence level: {report.confidence_level}
 
 ═══════════════════════════════════════════════════════════════
-📋 EXECUTIVE SUMMARY
+EXECUTIVE SUMMARY
 ═══════════════════════════════════════════════════════════════
 {report.executive_summary}
 
 ═══════════════════════════════════════════════════════════════
-🔬 DETAILED FINDINGS
+DETAILED FINDINGS
 ═══════════════════════════════════════════════════════════════
 """
         
@@ -5313,12 +5291,12 @@ Sources for this section:
         
         report_text += f"""
 ═══════════════════════════════════════════════════════════════
-🎯 CONCLUSION
+CONCLUSION
 ═══════════════════════════════════════════════════════════════
 {report.conclusion}
 
 ═══════════════════════════════════════════════════════════════
-📚 ALL SOURCES
+ALL SOURCES
 ═══════════════════════════════════════════════════════════════
 {chr(10).join([f'[{i+1}] {url}' for i, url in enumerate(report.all_sources)])}
 """
@@ -5666,7 +5644,7 @@ print("4. Run: python deep_research.py")
 
 ---
 
-# 📊 FINAL SUMMARY — Everything We Covered
+# FINAL SUMMARY — Everything We Covered
 
 ---
 
@@ -5743,4 +5721,4 @@ PROJECT 4: DEEP RESEARCH WITH WEB SEARCH AND REASONING MODELS
 
 ---
 
-> 🎉 **Congratulations!** You have completed the full **Deep Research** tutorial — from first principles all the way to a working end-to-end system!
+> **Congratulations!** You have completed the full **Deep Research** tutorial — from first principles all the way to a working end-to-end system!
