@@ -44,7 +44,7 @@
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 1. [Overview](#-overview)
 2. [What Makes This Different](#-what-makes-this-different)
@@ -70,7 +70,7 @@
 
 ---
 
-## 🔭 Overview
+## Overview
 
 **Deep Research AI System** is a production-ready framework that
 combines the reasoning power of state-of-the-art language models
@@ -130,7 +130,7 @@ Providers fall back automatically if one fails or returns no results.
 
 ---
 
-## ✨ What Makes This Different
+## What Makes This Different
 
 ### vs. Standard RAG / Perplexity
 
@@ -157,7 +157,7 @@ Providers fall back automatically if one fails or returns no results.
 
 ---
 
-## 🏗 System Architecture
+##  System Architecture
 
 ### Component Map
 
@@ -282,7 +282,7 @@ POST /api/v1/research  {"question": "..."}
 
 ---
 
-## 🧠 Reasoning Techniques
+## Reasoning Techniques
 
 ### 1 · Chain-of-Thought (CoT)
 
@@ -435,7 +435,7 @@ User: "What specific papers did DeepSeek publish in 2025?"
 
 ---
 
-## 📈 Inference-Time Scaling
+## Inference-Time Scaling
 
 Spend more compute at inference time — not training time —
 to improve answer quality on a per-question basis.
@@ -496,7 +496,7 @@ default                 → SAMPLES  (reliable baseline)
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 Choose the path that fits your setup:
 
@@ -504,7 +504,7 @@ Choose the path that fits your setup:
 
 ```bash
 # 1. Clone
-git clone https://github.com/yourorg/deep-research.git
+git clone https://github.com/AdilShamim8/Build-Deep-Research-104.git
 cd deep-research
 
 # 2. Configure
@@ -530,7 +530,7 @@ curl -X POST http://localhost:8000/api/v1/research \
 ### Option B · Local Python
 
 ```bash
-git clone https://github.com/yourorg/deep-research.git
+git clone https://github.com/AdilShamim8/Build-Deep-Research-104.git
 cd deep-research
 
 python -m venv venv
@@ -564,7 +564,7 @@ deep-research ask "How does CRISPR work?" --provider ollama
 
 ---
 
-## 📦 Installation
+## Installation
 
 ### System Requirements
 
@@ -613,7 +613,7 @@ print('✓ All core imports OK')
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 All settings are loaded from environment variables.
 Copy the template and edit:
@@ -741,7 +741,7 @@ TOT_BEAM_WIDTH=2
 
 ---
 
-## 💻 CLI Reference
+## CLI Reference
 
 Install CLI commands:
 
@@ -988,7 +988,7 @@ deep-research-train pairs data/questions.txt \
 
 ---
 
-## 🐍 Python API
+## Python API
 
 ### Deep Research Pipeline
 
@@ -1288,7 +1288,7 @@ asyncio.run(main())
 
 ---
 
-## 🌐 REST API
+## REST API
 
 ### Start the Server
 
@@ -1462,7 +1462,7 @@ curl http://localhost:8000/api/v1/health
 
 ---
 
-## 🎓 Training Pipeline
+## Training Pipeline
 
 Improve the model's reasoning capability over time.
 All components are independent — use only what you need.
