@@ -38,10 +38,6 @@
 
 <br/>
 
-> *"The goal is not to replace human researchers —*
-> *it is to give every person the research capability*
-> *of a world-class analyst."*
-
 </div>
 
 ---
