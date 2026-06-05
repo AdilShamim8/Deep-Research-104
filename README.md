@@ -1651,7 +1651,7 @@ asyncio.run(main())
 
 ---
 
-## 🖥 Local Deployment
+## Local Deployment
 
 ### Quick Setup
 
@@ -1702,7 +1702,7 @@ deep-research ask "How does fusion work?" --provider ollama
 
 ---
 
-## 🚢 Production Deployment
+## Production Deployment
 
 ### Docker Compose Profiles
 
@@ -1819,7 +1819,7 @@ redis:
 
 ---
 
-## 📊 Monitoring
+## Monitoring
 
 ```bash
 # Start monitoring stack
@@ -1865,7 +1865,7 @@ rate(deep_research_tokens_total[1h])
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Run All Tests
 
@@ -1930,7 +1930,7 @@ TOTAL                                     3706      90%
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 deep_research/                          ← Project root
@@ -2104,9 +2104,9 @@ deep_research/                          ← Project root
 
 ---
 
-## 🗺 Roadmap
+##  Roadmap
 
-### ✅ v1.0.0 — Current
+###  v1.0.0 — Current
 
 - [x] Multi-provider LLM support (OpenAI o3, DeepSeek-R1, Ollama)
 - [x] All inference-time scaling techniques (samples, steps, search, revision, adaptive)
@@ -2128,7 +2128,7 @@ deep_research/                          ← Project root
 - [x] Rich CLI with streaming support
 - [x] 90%+ test coverage
 
-### 🔄 v1.1.0 — In Progress
+###  v1.1.0 — In Progress
 
 - [ ] PDF and academic paper ingestion (arXiv, PubMed)
 - [ ] Vector store integration (FAISS / Pinecone / Chroma)
@@ -2136,7 +2136,7 @@ deep_research/                          ← Project root
 - [ ] API key authentication (JWT / API key header)
 - [ ] Per-user rate limiting
 
-### 📋 v1.2.0 — Planned
+###  v1.2.0 — Planned
 
 - [ ] Persistent research sessions (save / resume)
 - [ ] Custom tool plugins (calculator, code executor, Python REPL)
@@ -2144,7 +2144,7 @@ deep_research/                          ← Project root
 - [ ] Citation verification system
 - [ ] React web UI with streaming research view
 
-### 🔮 v2.0.0 — Future
+###  v2.0.0 — Future
 
 - [ ] Full RAG pipeline (chunking, embedding, retrieval)
 - [ ] Cross-language research (auto-translate + synthesize)
@@ -2154,7 +2154,7 @@ deep_research/                          ← Project root
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 
 All contributions are welcome — bug fixes, new features,
 documentation, tests, and translations.
@@ -2163,7 +2163,7 @@ documentation, tests, and translations.
 
 ```bash
 # Fork, then clone your fork
-git clone https://github.com/YOUR_USERNAME/deep-research.git
+git clone https://github.com/AdilShamim8/Build-Deep-Research-104.git
 cd deep-research
 
 # Create a feature branch
@@ -2199,13 +2199,13 @@ make lint test           # if using Makefile
 
 | Area | What We Need |
 |------|-------------|
-| 🐛 Bug fixes | Regression test with every fix |
-| ✨ New reasoning techniques | Benchmark comparison vs. existing |
-| 🔍 New search providers | Implement `BaseSearchProvider` interface |
-| 🏋️ Better reward models | Trained ORM/PRM to replace heuristic scorer |
-| 🧪 Test coverage | Especially search + training modules |
-| 📚 Documentation | Tutorials, worked examples, translations |
-| 🎨 Web UI | React frontend for the streaming API |
+|  Bug fixes | Regression test with every fix |
+|  New reasoning techniques | Benchmark comparison vs. existing |
+|  New search providers | Implement `BaseSearchProvider` interface |
+|  Better reward models | Trained ORM/PRM to replace heuristic scorer |
+|  Test coverage | Especially search + training modules |
+|  Documentation | Tutorials, worked examples, translations |
+|  Web UI | React frontend for the streaming API |
 
 ### Pull Request Guidelines
 
@@ -2218,7 +2218,7 @@ make lint test           # if using Makefile
 
 ---
 
-## 🙏 Acknowledgements
+##  Acknowledgements
 
 This system builds on foundational research from the AI community:
 
