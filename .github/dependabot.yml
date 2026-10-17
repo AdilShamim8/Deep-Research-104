@@ -65,6 +65,14 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "docker/*"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "codecov/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "softprops/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "github/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "trufflesecurity/*"
+        update-types: ["version-update:semver-major"]
     reviewers:
       - "AdilShamim8"
     assignees:
