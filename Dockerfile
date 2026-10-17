@@ -20,11 +20,30 @@ LABEL org.opencontainers.image.title="deep-research-104" \
 
 # ── System dependencies ───────────────────────────────────────────────────────
 # curl: healthcheck; git: pip from VCS; build-essential: native ext (lxml, etc.)
+# Playwright deps (libnss3, libatk1.0, libxkbcommon, etc.) are installed here
+# so we don't need playwright install --with-deps (which is slow + flaky).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         curl \
         git \
         ca-certificates \
+        libnss3 \
+        libnspr4 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libdrm2 \
+        libxkbcommon0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxrandr2 \
+        libgbm1 \
+        libasound2 \
+        libpangocairo-1.0-0 \
+        libpango-1.0-0 \
+        libcairo2 \
+        fonts-liberation \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates
 
@@ -35,16 +54,16 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DEFAULT_TIMEOUT=120 \
-    HASHCHECK=0
+    PIP_DEFAULT_TIMEOUT=120
 
 # ── Install Python dependencies (cached layer) ──────────────────────────────
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Install Playwright Chromium (best-effort; not required for default DuckDuckGo)
-RUN playwright install chromium --with-deps 2>/dev/null || true
+# Install Playwright Chromium (best-effort; not required for default
+# DuckDuckGo path). System deps already installed via apt above.
+RUN playwright install chromium || echo "Playwright install skipped (non-fatal)"
 
 
 # ── Production stage ──────────────────────────────────────────────────────────

@@ -57,6 +57,14 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
+    # Pin actions to minor versions (e.g. actions/checkout@v4.1.0)
+    # and ignore major bumps — Dependabot has been observed bumping to
+    # non-existent major versions on some forks.
+    ignore:
+      - dependency-name: "actions/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "docker/*"
+        update-types: ["version-update:semver-major"]
     reviewers:
       - "AdilShamim8"
     assignees:

@@ -19,7 +19,6 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.11"
-  NODE_VERSION: "20"
 
 jobs:
 
@@ -28,10 +27,10 @@ jobs:
     name: Lint & type-check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -63,10 +62,10 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
           cache: pip
@@ -80,7 +79,7 @@ jobs:
       - name: Run unit tests
         env:
           APP_ENV: test
-          REDIS_URL: ""  # force in-memory
+          REDIS_URL: ""
         run: |
           pytest tests/ \
             -v \
@@ -102,14 +101,15 @@ jobs:
   docker-build:
     name: Docker build (production)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@v3
 
       - name: Build production image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
@@ -118,6 +118,7 @@ jobs:
           tags: deep-research-104:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          load: true
 
       - name: Smoke-test the image
         run: |
@@ -125,10 +126,11 @@ jobs:
             -e APP_ENV=development \
             -e REDIS_URL="" \
             deep-research-104:ci
-          sleep 8
-          curl -fsS http://localhost:8000/health | head -c 200
+          sleep 10
+          curl -fsS http://localhost:8000/health | head -c 200 || \
+            (docker logs dr-test; exit 1)
           echo
-          docker stop dr-test
+          docker stop dr-test || true
 
   # ── Security scan ─────────────────────────────────────────────────────────
   security:
@@ -137,10 +139,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
