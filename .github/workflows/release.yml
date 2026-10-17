@@ -1,0 +1,147 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Deep Research 104 — Release workflow
+# Builds a production Docker image + GitHub Release when a tag is pushed.
+# Last verified: 17 October 2026
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"   # e.g. v1.0.0, v1.1.0-rc1
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v1.0.0)"
+        required: true
+
+permissions:
+  contents: write    # to create the GitHub Release
+  packages: write    # to push to GHCR
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+
+  # ── Build + push Docker image ─────────────────────────────────────────────
+  build-image:
+    name: Build + push image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set tag output
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "version=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build + push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDPLATFORM=linux/amd64
+
+  # ── GitHub Release notes ──────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-image]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "version=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build changelog from commits
+        id: changelog
+        run: |
+          # Extract commits since last tag (or all commits if first tag)
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            LOGS=$(git log --pretty=format:"- %s" "${PREV_TAG}..HEAD")
+          else
+            LOGS=$(git log --pretty=format:"- %s" HEAD)
+          fi
+          {
+            echo "changelog<<EOF"
+            echo "$LOGS"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.version }}
+          name: ${{ steps.tag.outputs.version }}
+          body: |
+            ## Changes
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ## Artifacts
+
+            Docker image: `ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.version }}`
+            Also tagged as: `ghcr.io/${{ env.IMAGE_NAME }}:latest`
+
+            ## Verify
+
+            ```bash
+            docker pull ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.version }}
+            docker run --rm -p 8000:8000 -e APP_ENV=production \
+              ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.version }}
+            curl http://localhost:8000/health
+            ```
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.version, 'rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
