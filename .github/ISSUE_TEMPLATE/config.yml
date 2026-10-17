@@ -1,0 +1,13 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Issue template config — disables blank issues, routes all new issues
+# through one of the structured templates.
+# ──────────────────────────────────────────────────────────────────────────────
+
+blank_issues_enabled: false
+contact_links:
+  - name: Security disclosure (private)
+    url: mailto:adilshamim8@users.noreply.github.com
+    about: Report security vulnerabilities privately. Do NOT open public issues.
+  - name: Discussions / Q&A
+    url: https://github.com/AdilShamim8/Deep-Research-104/discussions
+    about: Ask questions and discuss usage patterns. Bug reports and feature requests belong in issues.
