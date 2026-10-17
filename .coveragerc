@@ -1,0 +1,39 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Coverage configuration (also see [tool.coverage] in pyproject.toml)
+# Reference: https://coverage.readthedocs.io/en/latest/config.html
+# Last verified: 17 October 2026
+# ──────────────────────────────────────────────────────────────────────────────
+
+[run]
+source = src,config
+branch = True
+parallel = False
+concurrency = thread,thread
+omit =
+    tests/*
+    */__init__.py
+    src/cli/__main__.py
+    src/training/cli.py
+    setup.py
+
+[report]
+precision = 2
+show_missing = True
+skip_covered = False
+exclude_lines =
+    pragma: no cover
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
+    @pytest.mark.skip
+
+[html]
+directory = htmlcov
+title = Deep Research 104 — Coverage Report
+
+[xml]
+output = coverage.xml
+
+[json]
+output = coverage.json
