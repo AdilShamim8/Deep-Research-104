@@ -23,8 +23,10 @@ Date tag: 17 October 2026.
 from __future__ import annotations
 
 import time
-from typing import Any, AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
+from config.settings import settings
 from loguru import logger
 from openai import (
     APIConnectionError,
@@ -42,7 +44,6 @@ from tenacity import (
     wait_exponential,
 )
 
-from config.settings import settings
 from src.models.base_model import (
     BaseModel,
     GenerationConfig,
@@ -56,7 +57,6 @@ from src.utils.token_counter import (
     TokenCounter,
 )
 
-
 # ── Model matrices ────────────────────────────────────────────────────────────
 
 # Models in the o-series: extended thinking, no temperature/top_p,
@@ -68,8 +68,12 @@ O_SERIES_MODELS: frozenset[str] = frozenset(
 # Models that support token streaming (o1 legacy does not).
 STREAMING_MODELS: frozenset[str] = frozenset(
     {
-        "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo",
-        "o3", "o3-mini",
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4-turbo",
+        "gpt-3.5-turbo",
+        "o3",
+        "o3-mini",
     }
 )
 
@@ -105,6 +109,7 @@ def _build_retry_decorator(max_attempts: int) -> Any:
 
 # ── Provider ──────────────────────────────────────────────────────────────────
 
+
 class OpenAIModel(BaseModel):
     """Production OpenAI model client (GPT-4o + o-series reasoning)."""
 
@@ -112,29 +117,25 @@ class OpenAIModel(BaseModel):
         self,
         model_name: str = "o3-mini",
         *,
-        api_key: Optional[str] = None,
-        organization: Optional[str] = None,
-        timeout: Optional[float] = None,
+        api_key: str | None = None,
+        organization: str | None = None,
+        timeout: float | None = None,
     ) -> None:
         super().__init__(model_name)
 
         self._api_key = api_key or settings.models.openai_api_key
         if not self._api_key and settings.is_production:
-            raise RuntimeError(
-                "OPENAI_API_KEY is required in production but not set."
-            )
+            raise RuntimeError("OPENAI_API_KEY is required in production but not set.")
 
         self._client = AsyncOpenAI(
             api_key=self._api_key,
             organization=organization or settings.models.openai_org_id,
-            max_retries=0,                                   # we handle retries
+            max_retries=0,  # we handle retries
             timeout=timeout or settings.models.openai_request_timeout,
         )
 
         self._token_counter = TokenCounter(model_name)
-        self._is_o_series = any(
-            model_name.startswith(m) for m in O_SERIES_MODELS
-        )
+        self._is_o_series = any(model_name.startswith(m) for m in O_SERIES_MODELS)
         self._max_retries = settings.models.openai_max_retries
 
         # ── Capability matrix ───────────────────────────────────────────────
@@ -282,17 +283,14 @@ class OpenAIModel(BaseModel):
     async def generate(
         self,
         messages: list[dict],
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> ModelResponse:
         """Generate a completion with retries, validation, and accounting."""
         config = config or GenerationConfig()
         self.validate_messages(messages, config.max_tokens)
         prepared = self._prepare_messages(messages)
 
-        estimated_tokens = (
-            self._token_counter.count_messages_tokens(prepared)
-            + config.max_tokens
-        )
+        estimated_tokens = self._token_counter.count_messages_tokens(prepared) + config.max_tokens
         await rate_limiter.acquire(self.model_name, estimated_tokens=estimated_tokens)
 
         params = self._build_request_params(prepared, config)
@@ -329,10 +327,7 @@ class OpenAIModel(BaseModel):
         # Parallel sampling alternatives
         alternatives: list[str] = []
         if len(response.choices) > 1:
-            alternatives = [
-                c.message.content or ""
-                for c in response.choices[1:]
-            ]
+            alternatives = [c.message.content or "" for c in response.choices[1:]]
 
         usage = response.usage
         reasoning_tokens = 0
@@ -368,7 +363,7 @@ class OpenAIModel(BaseModel):
     async def stream_generate(
         self,
         messages: list[dict],
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream tokens as they are generated."""
         if not self.has_capability(ModelCapability.STREAMING):

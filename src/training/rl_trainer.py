@@ -16,9 +16,8 @@ Date tag: 17 October 2026.
 """
 
 import asyncio
-import json
-from dataclasses import dataclass, field
-from typing import Optional, Callable
+from dataclasses import dataclass
+
 from loguru import logger
 
 from src.models.base_model import BaseModel, GenerationConfig
@@ -28,12 +27,13 @@ from src.reasoning.verifier import BaseVerifier
 @dataclass
 class RLConfig:
     """Configuration for RL training."""
+
     # GRPO hyperparameters
-    group_size: int = 8              # G in GRPO - samples per question
-    temperature: float = 0.8        # Sampling temperature
+    group_size: int = 8  # G in GRPO - samples per question
+    temperature: float = 0.8  # Sampling temperature
     max_tokens: int = 2048
-    clip_epsilon: float = 0.2       # PPO clipping
-    kl_coefficient: float = 0.04    # KL penalty weight
+    clip_epsilon: float = 0.2  # PPO clipping
+    kl_coefficient: float = 0.04  # KL penalty weight
     entropy_coefficient: float = 0.01
 
     # Training
@@ -45,7 +45,7 @@ class RLConfig:
 
     # Reward shaping
     correct_reward: float = 1.0
-    format_reward: float = 0.1      # Reward for using correct format tags
+    format_reward: float = 0.1  # Reward for using correct format tags
     length_penalty: float = 0.0001  # Penalty per token (avoid verbosity)
 
     # Checkpointing
@@ -56,6 +56,7 @@ class RLConfig:
 @dataclass
 class RLEpisode:
     """A single RL training episode (question + sampled response)."""
+
     question: str
     response: str
     reasoning: str
@@ -63,7 +64,7 @@ class RLEpisode:
     is_correct: bool
     token_count: int
     format_valid: bool
-    group_id: int = 0               # Which GRPO group this belongs to
+    group_id: int = 0  # Which GRPO group this belongs to
 
 
 class GRPOCollector:
@@ -86,7 +87,7 @@ class GRPOCollector:
 
     async def collect_episodes(
         self,
-        questions: list[dict],       # [{"question": ..., "answer": ...}]
+        questions: list[dict],  # [{"question": ..., "answer": ...}]
         max_concurrent: int = 4,
     ) -> tuple[list[RLEpisode], dict]:
         """
@@ -97,15 +98,11 @@ class GRPOCollector:
         """
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def collect_one(
-            problem: dict, group_id: int
-        ) -> list[RLEpisode]:
+        async def collect_one(problem: dict, group_id: int) -> list[RLEpisode]:
             async with semaphore:
                 return await self._collect_group(problem, group_id)
 
-        tasks = [
-            collect_one(p, i) for i, p in enumerate(questions)
-        ]
+        tasks = [collect_one(p, i) for i, p in enumerate(questions)]
         all_groups = await asyncio.gather(*tasks, return_exceptions=True)
 
         episodes: list[RLEpisode] = []
@@ -140,10 +137,7 @@ class GRPOCollector:
 
         # Sample G responses
         messages = [{"role": "user", "content": question}]
-        tasks = [
-            self._safe_generate(messages, config)
-            for _ in range(self.config.group_size)
-        ]
+        tasks = [self._safe_generate(messages, config) for _ in range(self.config.group_size)]
         responses = await asyncio.gather(*tasks)
         valid_responses = [r for r in responses if r is not None]
 
@@ -156,13 +150,10 @@ class GRPOCollector:
 
         for response in valid_responses:
             import re
-            think_match = re.search(
-                r'<think>(.*?)</think>', response, re.DOTALL
-            )
+
+            think_match = re.search(r"<think>(.*?)</think>", response, re.DOTALL)
             reasoning = think_match.group(1).strip() if think_match else ""
-            answer = re.sub(
-                r'<think>.*?</think>', '', response, flags=re.DOTALL
-            ).strip()
+            answer = re.sub(r"<think>.*?</think>", "", response, flags=re.DOTALL).strip()
 
             # Check format (has think tags?)
             format_valid = bool(think_match)
@@ -184,25 +175,28 @@ class GRPOCollector:
             )
             rewards.append(reward)
 
-            episodes.append(RLEpisode(
-                question=question,
-                response=response,
-                reasoning=reasoning,
-                reward=reward,
-                is_correct=verification.is_correct,
-                token_count=len(response.split()),
-                format_valid=format_valid,
-                group_id=group_id,
-            ))
+            episodes.append(
+                RLEpisode(
+                    question=question,
+                    response=response,
+                    reasoning=reasoning,
+                    reward=reward,
+                    is_correct=verification.is_correct,
+                    token_count=len(response.split()),
+                    format_valid=format_valid,
+                    group_id=group_id,
+                )
+            )
 
         # Compute GRPO advantages (reward - group mean) / group std
         if rewards:
             import statistics
+
             mean_reward = sum(rewards) / len(rewards)
             std_reward = statistics.stdev(rewards) if len(rewards) > 1 else 1.0
             std_reward = max(std_reward, 1e-8)  # Avoid division by zero
 
-            for ep, reward in zip(episodes, rewards):
+            for ep, reward in zip(episodes, rewards, strict=False):
                 ep.reward = (reward - mean_reward) / std_reward
 
         return episodes
@@ -236,7 +230,7 @@ class GRPOCollector:
         self,
         messages: list[dict],
         config: GenerationConfig,
-    ) -> Optional[str]:
+    ) -> str | None:
         try:
             response = await self.model.generate(messages, config)
             return response.content
@@ -295,14 +289,9 @@ class GRPOTrainer:
         except ImportError:
             raise ImportError("pip install torch transformers")
 
-        logger.info(
-            f"GRPO update | episodes={len(episodes)} | "
-            f"model={self.policy_model_name}"
-        )
+        logger.info(f"GRPO update | episodes={len(episodes)} | model={self.policy_model_name}")
 
-        tokenizer = AutoTokenizer.from_pretrained(
-            self.policy_model_name, trust_remote_code=True
-        )
+        tokenizer = AutoTokenizer.from_pretrained(self.policy_model_name, trust_remote_code=True)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
@@ -329,18 +318,13 @@ class GRPOTrainer:
         steps = 0
 
         policy_model.train()
-        for i in range(
-            0, len(episodes), self.config.batch_size
-        ):
-            batch = episodes[i:i + self.config.batch_size]
+        for i in range(0, len(episodes), self.config.batch_size):
+            batch = episodes[i : i + self.config.batch_size]
 
             batch_loss = torch.tensor(0.0, requires_grad=True)
 
             for episode in batch:
-                full_text = (
-                    f"Question: {episode.question}\n"
-                    f"Answer: {episode.response}"
-                )
+                full_text = f"Question: {episode.question}\nAnswer: {episode.response}"
                 inputs = tokenizer(
                     full_text,
                     return_tensors="pt",
@@ -350,29 +334,23 @@ class GRPOTrainer:
 
                 with torch.no_grad():
                     ref_outputs = ref_model(**inputs)
-                    ref_log_probs = torch.nn.functional.log_softmax(
-                        ref_outputs.logits, dim=-1
-                    )
+                    ref_log_probs = torch.nn.functional.log_softmax(ref_outputs.logits, dim=-1)
 
                 policy_outputs = policy_model(**inputs)
-                policy_log_probs = torch.nn.functional.log_softmax(
-                    policy_outputs.logits, dim=-1
-                )
+                policy_log_probs = torch.nn.functional.log_softmax(policy_outputs.logits, dim=-1)
 
                 # KL divergence penalty
                 kl_div = (
-                    torch.exp(policy_log_probs) *
-                    (policy_log_probs - ref_log_probs)
-                ).sum(-1).mean()
+                    (torch.exp(policy_log_probs) * (policy_log_probs - ref_log_probs))
+                    .sum(-1)
+                    .mean()
+                )
 
                 # Policy gradient loss with GRPO advantage
                 advantage = torch.tensor(episode.reward)
                 pg_loss = -(advantage * policy_log_probs.mean())
 
-                episode_loss = (
-                    pg_loss +
-                    self.config.kl_coefficient * kl_div
-                )
+                episode_loss = pg_loss + self.config.kl_coefficient * kl_div
                 batch_loss = batch_loss + episode_loss
 
             batch_loss = batch_loss / len(batch)
@@ -389,9 +367,7 @@ class GRPOTrainer:
             steps += 1
 
             if steps % self.config.save_steps == 0:
-                checkpoint_dir = (
-                    f"{self.config.output_dir}/checkpoint-{steps}"
-                )
+                checkpoint_dir = f"{self.config.output_dir}/checkpoint-{steps}"
                 policy_model.save_pretrained(checkpoint_dir)
                 logger.info(f"Checkpoint saved: {checkpoint_dir}")
 
@@ -399,8 +375,5 @@ class GRPOTrainer:
         tokenizer.save_pretrained(self.config.output_dir)
 
         avg_loss = total_loss / max(steps, 1)
-        logger.info(
-            f"GRPO training complete | "
-            f"avg_loss={avg_loss:.4f} | steps={steps}"
-        )
+        logger.info(f"GRPO training complete | avg_loss={avg_loss:.4f} | steps={steps}")
         return {"avg_loss": avg_loss, "steps": steps}

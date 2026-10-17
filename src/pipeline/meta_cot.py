@@ -20,19 +20,17 @@ Date tag: 17 October 2026.
 """
 
 import re
-import asyncio
 import time
-from dataclasses import dataclass, field
-from typing import Optional, AsyncGenerator
+from collections.abc import AsyncGenerator
+from dataclasses import dataclass
+
 from loguru import logger
 
 from src.models.base_model import BaseModel, GenerationConfig
-from src.search.web_search import search_engine, SearchResponse
 from src.search.content_extractor import extractor
 from src.search.search_aggregator import SearchAggregator
+from src.search.web_search import search_engine
 from src.utils.token_counter import TokenCounter
-from config.settings import settings
-
 
 # ── System prompt that teaches model to use search ────────────────────────────
 
@@ -91,18 +89,21 @@ READING_RESULT_TEMPLATE = """\
 
 # ── Data structures ───────────────────────────────────────────────────────────
 
+
 @dataclass
 class MetaCoTAction:
     """A single action taken during Meta-CoT reasoning."""
-    action_type: str          # "think", "search", "reading", "answer"
-    content: str              # The content/query
-    result: Optional[str] = None  # Result of search/reading
+
+    action_type: str  # "think", "search", "reading", "answer"
+    content: str  # The content/query
+    result: str | None = None  # Result of search/reading
     timestamp_ms: float = 0.0
 
 
 @dataclass
 class MetaCoTResult:
     """Result from Meta-CoT reasoning."""
+
     answer: str
     reasoning_trace: str
     actions: list[MetaCoTAction]
@@ -114,6 +115,7 @@ class MetaCoTResult:
 
 
 # ── Meta-CoT Engine ───────────────────────────────────────────────────────────
+
 
 class MetaCoT:
     """
@@ -150,7 +152,7 @@ class MetaCoT:
     async def reason(
         self,
         question: str,
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> MetaCoTResult:
         """
         Run Meta-CoT reasoning on a question.
@@ -165,13 +167,10 @@ class MetaCoT:
         )
 
         logger.info(
-            f"Meta-CoT started | model={self.model.model_name} | "
-            f"max_searches={self.max_searches}"
+            f"Meta-CoT started | model={self.model.model_name} | max_searches={self.max_searches}"
         )
 
-        system_prompt = META_COT_SYSTEM.format(
-            max_searches=self.max_searches
-        )
+        system_prompt = META_COT_SYSTEM.format(max_searches=self.max_searches)
 
         # Conversation history - grows as we add search results
         messages = [
@@ -189,21 +188,16 @@ class MetaCoT:
         # Agentic loop
         for iteration in range(self.max_iterations):
             logger.debug(
-                f"Meta-CoT iteration {iteration + 1} | "
-                f"searches={search_count}/{self.max_searches}"
+                f"Meta-CoT iteration {iteration + 1} | searches={search_count}/{self.max_searches}"
             )
 
             # Validate that messages fit in context
-            fits, token_count, available = (
-                self._token_counter.check_fits_in_context(
-                    messages,
-                    reserved_output_tokens=config.max_tokens,
-                )
+            fits, _token_count, _available = self._token_counter.check_fits_in_context(
+                messages,
+                reserved_output_tokens=config.max_tokens,
             )
             if not fits:
-                logger.warning(
-                    f"Context limit approaching, truncating history"
-                )
+                logger.warning("Context limit approaching, truncating history")
                 messages = self._trim_messages(messages, config.max_tokens)
 
             # Generate next step
@@ -221,14 +215,11 @@ class MetaCoT:
             new_actions = self._parse_actions(content)
 
             # Check for final answer
-            answer_action = next(
-                (a for a in new_actions if a.action_type == "answer"),
-                None
-            )
+            answer_action = next((a for a in new_actions if a.action_type == "answer"), None)
             if answer_action:
                 actions.extend(new_actions)
                 logger.info(
-                    f"Meta-CoT complete | iterations={iteration+1} | "
+                    f"Meta-CoT complete | iterations={iteration + 1} | "
                     f"searches={search_count} | readings={reading_count}"
                 )
                 return MetaCoTResult(
@@ -287,28 +278,24 @@ class MetaCoT:
                 )
 
             # Add model's output + search results to conversation
-            messages.append({
-                "role": "assistant",
-                "content": content,
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": content,
+                }
+            )
             if search_results_text:
-                messages.append({
-                    "role": "user",
-                    "content": (
-                        search_results_text.strip() +
-                        "\n\nContinue your reasoning:"
-                    ),
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (search_results_text.strip() + "\n\nContinue your reasoning:"),
+                    }
+                )
 
         # Max iterations reached without final answer
         # Force a synthesis
-        logger.warning(
-            "Meta-CoT reached max iterations without final answer. "
-            "Forcing synthesis."
-        )
-        forced_answer = await self._force_synthesis(
-            question, messages, config
-        )
+        logger.warning("Meta-CoT reached max iterations without final answer. Forcing synthesis.")
+        forced_answer = await self._force_synthesis(question, messages, config)
         total_tokens += forced_answer.total_tokens
 
         return MetaCoTResult(
@@ -325,16 +312,12 @@ class MetaCoT:
     async def stream_reason(
         self,
         question: str,
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> AsyncGenerator[dict, None]:
         """Stream Meta-CoT reasoning events in real time."""
-        config = config or GenerationConfig(
-            max_tokens=2048, temperature=0.7
-        )
+        config = config or GenerationConfig(max_tokens=2048, temperature=0.7)
 
-        system_prompt = META_COT_SYSTEM.format(
-            max_searches=self.max_searches
-        )
+        system_prompt = META_COT_SYSTEM.format(max_searches=self.max_searches)
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": question},
@@ -359,17 +342,12 @@ class MetaCoT:
             new_actions = self._parse_actions(content)
 
             # Stream the thinking
-            think_actions = [
-                a for a in new_actions if a.action_type == "think"
-            ]
+            think_actions = [a for a in new_actions if a.action_type == "think"]
             for ta in think_actions:
                 yield {"type": "thinking", "content": ta.content}
 
             # Check for final answer
-            answer_action = next(
-                (a for a in new_actions if a.action_type == "answer"),
-                None
-            )
+            answer_action = next((a for a in new_actions if a.action_type == "answer"), None)
             if answer_action:
                 yield {
                     "type": "answer",
@@ -378,7 +356,7 @@ class MetaCoT:
                         "searches": search_count,
                         "readings": reading_count,
                         "iterations": iteration + 1,
-                    }
+                    },
                 }
                 return
 
@@ -411,10 +389,9 @@ class MetaCoT:
 
             messages.append({"role": "assistant", "content": content})
             if search_results:
-                messages.append({
-                    "role": "user",
-                    "content": search_results.strip() + "\n\nContinue:"
-                })
+                messages.append(
+                    {"role": "user", "content": search_results.strip() + "\n\nContinue:"}
+                )
 
         yield {
             "type": "timeout",
@@ -435,13 +412,9 @@ class MetaCoT:
                 )
 
             results_text = ""
-            for i, result in enumerate(
-                response.results[:self.search_results_per_query], 1
-            ):
+            for i, result in enumerate(response.results[: self.search_results_per_query], 1):
                 results_text += (
-                    f"{i}. **{result.title}**\n"
-                    f"   URL: {result.url}\n"
-                    f"   {result.snippet}\n\n"
+                    f"{i}. **{result.title}**\n   URL: {result.url}\n   {result.snippet}\n\n"
                 )
 
             return SEARCH_RESULT_TEMPLATE.format(
@@ -486,22 +459,24 @@ class MetaCoT:
         """Parse action tags from model output."""
         actions = []
         tag_pattern = re.compile(
-            r'<(search|reading|think|answer)>(.*?)</\1>',
+            r"<(search|reading|think|answer)>(.*?)</\1>",
             re.DOTALL | re.IGNORECASE,
         )
         for match in tag_pattern.finditer(text):
             action_type = match.group(1).lower()
             content = match.group(2).strip()
-            actions.append(MetaCoTAction(
-                action_type=action_type,
-                content=content,
-            ))
+            actions.append(
+                MetaCoTAction(
+                    action_type=action_type,
+                    content=content,
+                )
+            )
         return actions
 
     @staticmethod
     def _extract_urls_from_results(results_text: str) -> list[str]:
         """Extract URLs from formatted search results."""
-        url_pattern = re.compile(r'URL:\s*(https?://\S+)')
+        url_pattern = re.compile(r"URL:\s*(https?://\S+)")
         return url_pattern.findall(results_text)
 
     def _trim_messages(
@@ -524,20 +499,17 @@ class MetaCoT:
         config: GenerationConfig,
     ):
         """Force a final synthesis when max iterations reached."""
-        synthesis_messages = messages + [
+        synthesis_messages = [
+            *messages,
             {
                 "role": "user",
-                "content": (
-                    "Based on all the research above, provide your "
-                    "final comprehensive answer now. "
-                    "Use <answer>...</answer> tags."
-                )
-            }
+                "content": "Based on all the research above, provide your "
+                "final comprehensive answer now. "
+                "Use <answer>...</answer> tags.",
+            },
         ]
         synthesis_config = GenerationConfig(
             max_tokens=min(4096, config.max_tokens * 2),
             temperature=0.5,
         )
-        return await self.model.generate(
-            synthesis_messages, synthesis_config
-        )
+        return await self.model.generate(synthesis_messages, synthesis_config)

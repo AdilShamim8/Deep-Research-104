@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
-
 from src.api.main import create_app
 
 
@@ -27,6 +26,7 @@ def client() -> TestClient:
 
 # ── Root ────────────────────────────────────────────────────────────────────
 
+
 class TestRoot:
     def test_root_returns_endpoints(self, client: TestClient) -> None:
         r = client.get("/")
@@ -39,6 +39,7 @@ class TestRoot:
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
+
 
 class TestHealth:
     def test_health_returns_200(self, client: TestClient) -> None:
@@ -56,6 +57,7 @@ class TestHealth:
 
 # ── Version ──────────────────────────────────────────────────────────────────
 
+
 class TestVersion:
     def test_version_returns_full_info(self, client: TestClient) -> None:
         r = client.get("/version")
@@ -70,6 +72,7 @@ class TestVersion:
 
 # ── Readiness ──────────────────────────────────────────────────────────────────
 
+
 class TestReady:
     def test_ready_returns_200_or_503(self, client: TestClient) -> None:
         r = client.get("/ready")
@@ -82,6 +85,7 @@ class TestReady:
 
 # ── Providers ──────────────────────────────────────────────────────────────────
 
+
 class TestProviders:
     def test_providers_returns_list(self, client: TestClient) -> None:
         r = client.get("/api/v1/providers")
@@ -93,6 +97,7 @@ class TestProviders:
 
 
 # ── Metrics ──────────────────────────────────────────────────────────────────
+
 
 class TestMetrics:
     def test_metrics_endpoint_exists(self, client: TestClient) -> None:
@@ -118,6 +123,7 @@ class TestMetrics:
 
 # ── Route-level health ──────────────────────────────────────────────────────
 
+
 class TestRouteHealth:
     def test_api_v1_health(self, client: TestClient) -> None:
         r = client.get("/api/v1/health")
@@ -127,6 +133,7 @@ class TestRouteHealth:
 
 
 # ── Request validation ──────────────────────────────────────────────────────
+
 
 class TestRequestValidation:
     def test_research_missing_question_returns_422(self, client: TestClient) -> None:
@@ -161,6 +168,7 @@ class TestRequestValidation:
 
 
 # ── Headers ─────────────────────────────────────────────────────────────────
+
 
 class TestSecurityHeaders:
     def test_security_headers_present(self, client: TestClient) -> None:

@@ -22,13 +22,14 @@ Date tag: 17 October 2026.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import re
 import time
-from typing import Any, AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import httpx
+from config.settings import settings
 from loguru import logger
 from tenacity import (
     before_sleep_log,
@@ -38,7 +39,6 @@ from tenacity import (
     wait_exponential,
 )
 
-from config.settings import settings
 from src.models.base_model import (
     BaseModel,
     GenerationConfig,
@@ -46,7 +46,6 @@ from src.models.base_model import (
     ModelResponse,
 )
 from src.utils.token_counter import TokenCounter
-
 
 # ── Context limits for local models ──────────────────────────────────────────
 # Conservative defaults; override by setting OLLAMA_MODEL_CTX_LIMITS env.
@@ -69,11 +68,13 @@ OLLAMA_CONTEXT_LIMITS: dict[str, int] = {
     "phi3:mini": 12_825,
 }
 
-_THINK_PATTERN = re.compile(r"<(?:think|thinking)>(.*?)(?:</think|</thinking>)",
-                            re.DOTALL | re.IGNORECASE)
+_THINK_PATTERN = re.compile(
+    r"<(?:think|thinking)>(.*?)(?:</think|</thinking>)", re.DOTALL | re.IGNORECASE
+)
 
 
 # ── Ollama client ────────────────────────────────────────────────────────────
+
 
 class OllamaModel(BaseModel):
     """Local model via the Ollama HTTP API.
@@ -87,15 +88,15 @@ class OllamaModel(BaseModel):
         self,
         model_name: str = "deepseek-r1:7b",
         *,
-        base_url: Optional[str] = None,
-        timeout: Optional[float] = None,
+        base_url: str | None = None,
+        timeout: float | None = None,
     ) -> None:
         super().__init__(model_name)
         self._base_url = (base_url or settings.models.ollama_base_url).rstrip("/")
         self._api_url = f"{self._base_url}/api"
         self._timeout = timeout or 300.0
         self._token_counter = TokenCounter("gpt-4")  # Approximate for local
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
         self._model_pulled = False
         self._health_checked = False
 
@@ -219,7 +220,7 @@ class OllamaModel(BaseModel):
         parts.append("[ASSISTANT]")
         return "\n\n".join(parts)
 
-    def _parse_reasoning(self, raw_content: str) -> tuple[str, Optional[str]]:
+    def _parse_reasoning(self, raw_content: str) -> tuple[str, str | None]:
         """Parse  tags (DeepSeek-R1 style) from Ollama output."""
         reasoning_parts = _THINK_PATTERN.findall(raw_content)
         clean = _THINK_PATTERN.sub("", raw_content).strip()
@@ -238,7 +239,7 @@ class OllamaModel(BaseModel):
     async def generate(
         self,
         messages: list[dict],
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> ModelResponse:
         """Generate via Ollama /api/chat endpoint."""
         config = config or GenerationConfig(max_tokens=4_096, temperature=0.7)
@@ -309,7 +310,7 @@ class OllamaModel(BaseModel):
     async def stream_generate(
         self,
         messages: list[dict],
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream tokens from Ollama, filtering  blocks."""
         config = config or GenerationConfig(max_tokens=4_096)
@@ -365,6 +366,7 @@ class OllamaModel(BaseModel):
 
 # ── vLLM client (OpenAI-compatible) ──────────────────────────────────────────
 
+
 class VLLMModel(BaseModel):
     """Thin client for vLLM's OpenAI-compatible server.
 
@@ -380,7 +382,7 @@ class VLLMModel(BaseModel):
         *,
         base_url: str = "http://localhost:8000/v1",
         api_key: str = "EMPTY",  # vLLM accepts any non-empty key by default
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> None:
         from src.models.deepseek_models import DeepSeekModel
 
@@ -392,9 +394,7 @@ class VLLMModel(BaseModel):
             timeout=timeout or 300.0,
         )
         self.capabilities = self._impl.capabilities
-        logger.info(
-            f"vLLM model initialized: model={model_name} base_url={base_url}"
-        )
+        logger.info(f"vLLM model initialized: model={model_name} base_url={base_url}")
 
     def count_tokens(self, text: str) -> int:
         return self._impl.count_tokens(text)
@@ -419,6 +419,7 @@ class VLLMModel(BaseModel):
 
 # ── llama.cpp placeholder ──────────────────────────────────────────────────────
 
+
 class LlamaCppModel(BaseModel):
     """Placeholder for llama.cpp server integration.
 
@@ -437,9 +438,10 @@ class LlamaCppModel(BaseModel):
 
 # ── Factory ───────────────────────────────────────────────────────────────────
 
+
 def get_model_factory(
     provider: str = "openai",
-    model_name: Optional[str] = None,
+    model_name: str | None = None,
 ) -> BaseModel:
     """Dispatch to the correct model provider.
 
@@ -456,11 +458,13 @@ def get_model_factory(
 
     if provider == "openai":
         from src.models.openai_models import OpenAIModel
+
         name = model_name or settings.models.openai_reasoning_model
         return OpenAIModel(name)
 
     if provider == "deepseek":
         from src.models.deepseek_models import DeepSeekModel
+
         name = model_name or settings.models.deepseek_reasoning_model
         return DeepSeekModel(name)
 
@@ -476,6 +480,5 @@ def get_model_factory(
         return LlamaCppModel(model_name or "llama-cpp")
 
     raise ValueError(
-        f"Unknown provider: {provider!r}. "
-        f"Choose from: openai, deepseek, ollama, vllm, llamacpp"
+        f"Unknown provider: {provider!r}. Choose from: openai, deepseek, ollama, vllm, llamacpp"
     )

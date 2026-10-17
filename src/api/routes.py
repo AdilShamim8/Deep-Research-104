@@ -19,18 +19,17 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from typing import Any, AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from config.settings import settings
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from config.settings import settings
 from src.api.schemas import (
     CoTRequest,
     CoTResponse,
     ErrorResponse,
-    HealthResponse,
     ResearchRequest,
     ResearchResponse,
     SearchRequest,
@@ -46,26 +45,23 @@ from src.pipeline.meta_cot import MetaCoT
 from src.reasoning.chain_of_thought import ChainOfThought
 from src.reasoning.tree_of_thoughts import SearchStrategy, TreeOfThoughts
 
-
 router = APIRouter()
 
 
 # ── Dependencies ──────────────────────────────────────────────────────────────
+
 
 def _get_request_id(request: Request) -> str:
     """Pull the request_id that the middleware set on request.state."""
     return getattr(request.state, "request_id", str(uuid.uuid4())[:8])
 
 
-def _get_model(provider: str, model_name: Optional[str] = None) -> BaseModel:
+def _get_model(provider: str, model_name: str | None = None) -> BaseModel:
     """Resolve a model provider. Raises HTTPException(400) on bad input."""
     if provider not in PROVIDERS:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Unknown provider: {provider!r}. "
-                f"Choose from: {', '.join(PROVIDERS)}"
-            ),
+            detail=(f"Unknown provider: {provider!r}. Choose from: {', '.join(PROVIDERS)}"),
         )
     try:
         return get_model_factory(provider, model_name)
@@ -80,6 +76,7 @@ def _get_model(provider: str, model_name: Optional[str] = None) -> BaseModel:
 
 
 # ── Research endpoints ────────────────────────────────────────────────────────
+
 
 @router.post(
     "/research",
@@ -96,8 +93,7 @@ async def research(req: ResearchRequest, request: Request) -> ResearchResponse:
     start_time = time.time()
 
     logger.info(
-        f"[{request_id}] /research provider={req.provider} "
-        f"mode={req.mode} q={req.question[:60]!r}"
+        f"[{request_id}] /research provider={req.provider} mode={req.mode} q={req.question[:60]!r}"
     )
 
     model = _get_model(req.provider, req.model_name)
@@ -199,6 +195,7 @@ async def stream_research(req: ResearchRequest, request: Request) -> StreamingRe
 
 # ── CoT endpoint ─────────────────────────────────────────────────────────────
 
+
 @router.post(
     "/cot",
     response_model=CoTResponse,
@@ -256,6 +253,7 @@ async def chain_of_thought(req: CoTRequest, request: Request) -> CoTResponse:
 
 # ── ToT endpoint ─────────────────────────────────────────────────────────────
 
+
 @router.post(
     "/tot",
     response_model=ToTResponse,
@@ -311,6 +309,7 @@ async def tree_of_thoughts(req: ToTRequest, request: Request) -> ToTResponse:
 
 # ── Search endpoint ──────────────────────────────────────────────────────────
 
+
 @router.post(
     "/search",
     response_model=SearchResponse,
@@ -364,6 +363,7 @@ async def web_search(req: SearchRequest, request: Request) -> SearchResponse:
 
 # ── Provider listing ─────────────────────────────────────────────────────────
 
+
 @router.get(
     "/providers",
     summary="List available LLM providers",
@@ -378,6 +378,7 @@ async def list_providers() -> dict:
 
 # ── Cache + search metrics ───────────────────────────────────────────────────
 
+
 @router.get(
     "/metrics/cache",
     summary="Cache metrics",
@@ -385,6 +386,7 @@ async def list_providers() -> dict:
 )
 async def cache_metrics() -> dict:
     from src.utils.cache import cache
+
     m = cache.metrics
     return {
         "hits": m.hits,
@@ -404,6 +406,7 @@ async def cache_metrics() -> dict:
 )
 async def search_metrics() -> dict:
     from src.search.web_search import search_engine
+
     return search_engine.metrics()
 
 
@@ -411,7 +414,7 @@ async def search_metrics() -> dict:
     "/health",
     summary="Health check (route-level)",
     description="Quick route-level health probe. Use /health (root) for the "
-                "full liveness probe with Redis + uptime.",
+    "full liveness probe with Redis + uptime.",
 )
 async def route_health() -> dict:
     return {"status": "ok", "path": "/api/v1/health"}

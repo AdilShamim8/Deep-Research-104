@@ -3,7 +3,7 @@ Verifier / Reward Models for search-against-a-verifier.
 
 Implements:
   - Outcome Reward Model (ORM): score final answer quality
-  - Process Reward Model (PRM): score intermediate reasoning steps  
+  - Process Reward Model (PRM): score intermediate reasoning steps
   - Rule-based verifier: for math/code where answers are checkable
   - LLM-as-judge: use strong model to evaluate weaker model output
   - Best-of-N with verifier: generate N, pick highest-scoring
@@ -13,24 +13,26 @@ Based on: Let's Verify Step by Step (Lightman et al., 2023)
 Date tag: 17 October 2026.
 """
 
-import re
 import asyncio
+import re
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Optional, Callable
+
 from loguru import logger
 
 from src.models.base_model import BaseModel, GenerationConfig, ModelResponse
 
-
 # ── Base verifier ─────────────────────────────────────────────────────────────
+
 
 @dataclass
 class VerificationResult:
     """Result from any verifier."""
-    score: float                          # 0.0 to 1.0
-    is_correct: bool                      # Binary judgment
-    feedback: str                         # Human-readable explanation
+
+    score: float  # 0.0 to 1.0
+    is_correct: bool  # Binary judgment
+    feedback: str  # Human-readable explanation
     step_scores: list[float] = field(default_factory=list)  # PRM only
     confidence: float = 1.0
 
@@ -43,8 +45,8 @@ class BaseVerifier(ABC):
         self,
         question: str,
         answer: str,
-        reasoning: Optional[str] = None,
-        reference: Optional[str] = None,
+        reasoning: str | None = None,
+        reference: str | None = None,
     ) -> VerificationResult:
         """Verify an answer, optionally against a reference."""
         ...
@@ -55,10 +57,7 @@ class BaseVerifier(ABC):
         steps: list[str],
     ) -> list[VerificationResult]:
         """Verify each reasoning step (PRM-style). Default: verify all."""
-        tasks = [
-            self.verify(question, step)
-            for step in steps
-        ]
+        tasks = [self.verify(question, step) for step in steps]
         return await asyncio.gather(*tasks)
 
 
@@ -98,8 +97,8 @@ class OutcomeRewardModel(BaseVerifier):
         self,
         question: str,
         answer: str,
-        reasoning: Optional[str] = None,
-        reference: Optional[str] = None,
+        reasoning: str | None = None,
+        reference: str | None = None,
     ) -> VerificationResult:
         """Score a final answer using LLM judge."""
 
@@ -111,7 +110,7 @@ class OutcomeRewardModel(BaseVerifier):
 
         messages = [
             {"role": "system", "content": ORM_SYSTEM_PROMPT},
-            {"role": "user", "content": content}
+            {"role": "user", "content": content},
         ]
 
         config = GenerationConfig(max_tokens=512, temperature=0.0)
@@ -121,25 +120,18 @@ class OutcomeRewardModel(BaseVerifier):
         except Exception as e:
             logger.warning(f"ORM verification failed: {e}")
             return VerificationResult(
-                score=0.5, is_correct=False,
-                feedback=f"Verification failed: {e}"
+                score=0.5, is_correct=False, feedback=f"Verification failed: {e}"
             )
 
     def _parse_orm_response(self, text: str) -> VerificationResult:
-        score_match = re.search(r'SCORE:\s*([\d.]+)', text)
-        correct_match = re.search(r'CORRECT:\s*(YES|NO)', text, re.IGNORECASE)
-        feedback_match = re.search(r'FEEDBACK:\s*(.+)', text, re.DOTALL)
+        score_match = re.search(r"SCORE:\s*([\d.]+)", text)
+        correct_match = re.search(r"CORRECT:\s*(YES|NO)", text, re.IGNORECASE)
+        feedback_match = re.search(r"FEEDBACK:\s*(.+)", text, re.DOTALL)
 
         score = float(score_match.group(1)) if score_match else 0.5
         score = max(0.0, min(1.0, score))
-        is_correct = (
-            correct_match.group(1).upper() == "YES"
-            if correct_match else score >= 0.7
-        )
-        feedback = (
-            feedback_match.group(1).strip()
-            if feedback_match else "No feedback provided"
-        )
+        is_correct = correct_match.group(1).upper() == "YES" if correct_match else score >= 0.7
+        feedback = feedback_match.group(1).strip() if feedback_match else "No feedback provided"
 
         return VerificationResult(
             score=score,
@@ -190,8 +182,8 @@ class ProcessRewardModel(BaseVerifier):
         self,
         question: str,
         answer: str,
-        reasoning: Optional[str] = None,
-        reference: Optional[str] = None,
+        reasoning: str | None = None,
+        reference: str | None = None,
     ) -> VerificationResult:
         """
         Verify by parsing reasoning into steps and scoring each.
@@ -217,21 +209,14 @@ class ProcessRewardModel(BaseVerifier):
         final_score = 0.6 * min_score + 0.4 * avg_score
 
         # Find first failing step
-        first_fail = next(
-            (i for i, r in enumerate(step_results) if not r.is_correct),
-            None
-        )
+        first_fail = next((i for i, r in enumerate(step_results) if not r.is_correct), None)
 
         if first_fail is not None:
             feedback = (
-                f"Reasoning failed at step {first_fail + 1}: "
-                f"{step_results[first_fail].feedback}"
+                f"Reasoning failed at step {first_fail + 1}: {step_results[first_fail].feedback}"
             )
         else:
-            feedback = (
-                f"All {len(steps)} steps verified. "
-                f"Average score: {avg_score:.2f}"
-            )
+            feedback = f"All {len(steps)} steps verified. Average score: {avg_score:.2f}"
 
         return VerificationResult(
             score=final_score,
@@ -248,13 +233,8 @@ class ProcessRewardModel(BaseVerifier):
         """Score each step individually."""
         tasks = []
         for i, step in enumerate(steps):
-            previous = "\n".join(
-                f"Step {j+1}: {steps[j]}"
-                for j in range(i)
-            ) or "None"
-            tasks.append(
-                self._score_step(question, previous, step)
-            )
+            previous = "\n".join(f"Step {j + 1}: {steps[j]}" for j in range(i)) or "None"
+            tasks.append(self._score_step(question, previous, step))
         return await asyncio.gather(*tasks)
 
     async def _score_step(
@@ -270,46 +250,32 @@ class ProcessRewardModel(BaseVerifier):
         )
         config = GenerationConfig(max_tokens=256, temperature=0.0)
         try:
-            response = await self.judge.generate(
-                [{"role": "user", "content": prompt}],
-                config
-            )
+            response = await self.judge.generate([{"role": "user", "content": prompt}], config)
             return self._parse_step_response(response.content)
         except Exception as e:
             logger.warning(f"PRM step scoring failed: {e}")
             return VerificationResult(
-                score=0.5, is_correct=True,
-                feedback="Step verification failed"
+                score=0.5, is_correct=True, feedback="Step verification failed"
             )
 
     def _parse_step_response(self, text: str) -> VerificationResult:
-        score_match = re.search(r'STEP_SCORE:\s*([\d.]+)', text)
-        correct_match = re.search(
-            r'STEP_CORRECT:\s*(YES|NO)', text, re.IGNORECASE
-        )
-        feedback_match = re.search(r'STEP_FEEDBACK:\s*(.+)', text, re.DOTALL)
+        score_match = re.search(r"STEP_SCORE:\s*([\d.]+)", text)
+        correct_match = re.search(r"STEP_CORRECT:\s*(YES|NO)", text, re.IGNORECASE)
+        feedback_match = re.search(r"STEP_FEEDBACK:\s*(.+)", text, re.DOTALL)
 
         score = float(score_match.group(1)) if score_match else 0.5
         score = max(0.0, min(1.0, score))
-        is_correct = (
-            correct_match.group(1).upper() == "YES"
-            if correct_match else score >= 0.6
-        )
-        feedback = (
-            feedback_match.group(1).strip()
-            if feedback_match else ""
-        )
-        return VerificationResult(
-            score=score, is_correct=is_correct, feedback=feedback
-        )
+        is_correct = correct_match.group(1).upper() == "YES" if correct_match else score >= 0.6
+        feedback = feedback_match.group(1).strip() if feedback_match else ""
+        return VerificationResult(score=score, is_correct=is_correct, feedback=feedback)
 
     @staticmethod
     def _parse_steps(reasoning: str) -> list[str]:
         """Parse numbered steps from reasoning text."""
         steps = re.findall(
-            r'(?:step\s+\d+[:.]\s*|^\d+\.\s*)(.+?)(?=step\s+\d+|^\d+\.|$)',
+            r"(?:step\s+\d+[:.]\s*|^\d+\.\s*)(.+?)(?=step\s+\d+|^\d+\.|$)",
             reasoning,
-            re.DOTALL | re.MULTILINE | re.IGNORECASE
+            re.DOTALL | re.MULTILINE | re.IGNORECASE,
         )
         if steps:
             return [s.strip() for s in steps if s.strip()]
@@ -318,6 +284,7 @@ class ProcessRewardModel(BaseVerifier):
 
 
 # ── Rule-based verifier ───────────────────────────────────────────────────────
+
 
 class RuleBasedVerifier(BaseVerifier):
     """
@@ -333,7 +300,7 @@ class RuleBasedVerifier(BaseVerifier):
 
     def __init__(
         self,
-        verify_fn: Optional[Callable[[str, str], bool]] = None,
+        verify_fn: Callable[[str, str], bool] | None = None,
         numeric_tolerance: float = 1e-6,
     ):
         self._verify_fn = verify_fn
@@ -343,14 +310,14 @@ class RuleBasedVerifier(BaseVerifier):
         self,
         question: str,
         answer: str,
-        reasoning: Optional[str] = None,
-        reference: Optional[str] = None,
+        reasoning: str | None = None,
+        reference: str | None = None,
     ) -> VerificationResult:
         if reference is None:
             return VerificationResult(
                 score=0.5,
                 is_correct=False,
-                feedback="No reference answer provided for rule-based verification"
+                feedback="No reference answer provided for rule-based verification",
             )
 
         if self._verify_fn:
@@ -358,9 +325,7 @@ class RuleBasedVerifier(BaseVerifier):
                 is_correct = self._verify_fn(answer, reference)
             except Exception as e:
                 return VerificationResult(
-                    score=0.0,
-                    is_correct=False,
-                    feedback=f"Custom verifier error: {e}"
+                    score=0.0, is_correct=False, feedback=f"Custom verifier error: {e}"
                 )
         else:
             is_correct = self._default_verify(answer, reference)
@@ -369,9 +334,10 @@ class RuleBasedVerifier(BaseVerifier):
             score=1.0 if is_correct else 0.0,
             is_correct=is_correct,
             feedback=(
-                "Answer matches reference." if is_correct
+                "Answer matches reference."
+                if is_correct
                 else f"Expected: {reference}, Got: {answer}"
-            )
+            ),
         )
 
     def _default_verify(self, answer: str, reference: str) -> bool:
@@ -385,8 +351,8 @@ class RuleBasedVerifier(BaseVerifier):
 
         # Try numeric comparison
         try:
-            float_ans = float(re.sub(r'[,\s]', '', norm_ans))
-            float_ref = float(re.sub(r'[,\s]', '', norm_ref))
+            float_ans = float(re.sub(r"[,\s]", "", norm_ans))
+            float_ref = float(re.sub(r"[,\s]", "", norm_ref))
             return abs(float_ans - float_ref) <= self._numeric_tolerance
         except ValueError:
             pass
@@ -395,6 +361,7 @@ class RuleBasedVerifier(BaseVerifier):
 
 
 # ── Best-of-N with Verifier ───────────────────────────────────────────────────
+
 
 class BestOfNWithVerifier:
     """
@@ -416,9 +383,9 @@ class BestOfNWithVerifier:
         self,
         question: str,
         n: int = 8,
-        context: Optional[str] = None,
-        reference: Optional[str] = None,
-        gen_config: Optional[GenerationConfig] = None,
+        context: str | None = None,
+        reference: str | None = None,
+        gen_config: GenerationConfig | None = None,
     ) -> tuple[str, VerificationResult, list[VerificationResult]]:
         """
         Generate N candidates, verify each, return best.
@@ -438,15 +405,11 @@ class BestOfNWithVerifier:
         messages = [{"role": "user", "content": content}]
 
         logger.info(
-            f"Best-of-N search: generating {n} candidates | "
-            f"model={self.generator.model_name}"
+            f"Best-of-N search: generating {n} candidates | model={self.generator.model_name}"
         )
 
         # Generate N candidates
-        tasks = [
-            self._safe_generate(messages, gen_config, i)
-            for i in range(n)
-        ]
+        tasks = [self._safe_generate(messages, gen_config, i) for i in range(n)]
         responses = await asyncio.gather(*tasks)
         valid = [r for r in responses if r is not None]
 
@@ -466,10 +429,7 @@ class BestOfNWithVerifier:
         verifications = await asyncio.gather(*verify_tasks)
 
         # Find best
-        best_idx = max(
-            range(len(verifications)),
-            key=lambda i: verifications[i].score
-        )
+        best_idx = max(range(len(verifications)), key=lambda i: verifications[i].score)
 
         logger.info(
             f"Best-of-N: best_score={verifications[best_idx].score:.3f} | "
@@ -488,7 +448,7 @@ class BestOfNWithVerifier:
         messages: list[dict],
         config: GenerationConfig,
         idx: int,
-    ) -> Optional[ModelResponse]:
+    ) -> ModelResponse | None:
         try:
             return await self.generator.generate(messages, config)
         except Exception as e:

@@ -6,18 +6,17 @@ capability assertion, GenerationConfig validation, ModelResponse helpers.
 from __future__ import annotations
 
 import pytest
-
 from src.models.base_model import (
+    PRICING_TABLE,
     BaseModel,
     GenerationConfig,
     ModelCapability,
     ModelResponse,
-    PRICING_TABLE,
     estimate_cost,
 )
 
-
 # ── GenerationConfig ──────────────────────────────────────────────────────────
+
 
 class TestGenerationConfig:
     def test_defaults_are_sensible(self) -> None:
@@ -68,6 +67,7 @@ class TestGenerationConfig:
 
 # ── ModelResponse ──────────────────────────────────────────────────────────────
 
+
 class TestModelResponse:
     def test_defaults(self) -> None:
         r = ModelResponse(content="hi")
@@ -91,6 +91,7 @@ class TestModelResponse:
 
 
 # ── Capability registry ────────────────────────────────────────────────────────
+
 
 class TestModelCapability:
     def test_all_capabilities_have_unique_values(self) -> None:
@@ -141,6 +142,7 @@ class TestModelCapability:
 
 # ── Cost estimation ──────────────────────────────────────────────────────────
 
+
 class TestCostEstimation:
     def test_known_model_returns_positive_cost(self) -> None:
         # o3-mini: $0.0011 / 1K input + $0.0044 / 1K output
@@ -150,9 +152,7 @@ class TestCostEstimation:
 
     def test_deepseek_reasoner_cheaper_than_o3(self) -> None:
         o3 = estimate_cost("o3", prompt_tokens=10_000, completion_tokens=10_000)
-        ds = estimate_cost(
-            "deepseek-reasoner", prompt_tokens=10_000, completion_tokens=10_000
-        )
+        ds = estimate_cost("deepseek-reasoner", prompt_tokens=10_000, completion_tokens=10_000)
         assert ds < o3
 
     def test_unknown_model_returns_zero(self) -> None:
@@ -163,9 +163,7 @@ class TestCostEstimation:
         cost_with_suffix = estimate_cost(
             "o3-mini-2025-01-31", prompt_tokens=1000, completion_tokens=1000
         )
-        cost_canonical = estimate_cost(
-            "o3-mini", prompt_tokens=1000, completion_tokens=1000
-        )
+        cost_canonical = estimate_cost("o3-mini", prompt_tokens=1000, completion_tokens=1000)
         assert cost_with_suffix == cost_canonical
 
     def test_zero_tokens_zero_cost(self) -> None:
@@ -173,13 +171,19 @@ class TestCostEstimation:
 
     def test_pricing_table_has_all_known_models(self) -> None:
         for model in [
-            "o3-mini", "o3", "o1", "deepseek-reasoner",
-            "deepseek-chat", "gpt-4o", "gpt-4o-mini",
+            "o3-mini",
+            "o3",
+            "o1",
+            "deepseek-reasoner",
+            "deepseek-chat",
+            "gpt-4o",
+            "gpt-4o-mini",
         ]:
             assert model in PRICING_TABLE
 
 
 # ── update_cost integration ────────────────────────────────────────────────────
+
 
 class TestUpdateCost:
     def test_update_cost_populates_response(self) -> None:
@@ -198,8 +202,10 @@ class TestUpdateCost:
 
         m = FakeModel("o3-mini")
         response = ModelResponse(
-            content="answer", model="o3-mini",
-            prompt_tokens=1000, completion_tokens=1000,
+            content="answer",
+            model="o3-mini",
+            prompt_tokens=1000,
+            completion_tokens=1000,
         )
         m.update_cost(response)
         assert response.cost_usd > 0

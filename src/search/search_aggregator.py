@@ -21,23 +21,23 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 from urllib.parse import urlparse
 
 from loguru import logger
 
 from src.search.content_extractor import ContentExtractor, ExtractedContent
-from src.search.web_search import SearchResult, SearchResponse
+from src.search.web_search import SearchResponse, SearchResult
 from src.utils.token_counter import TokenCounter
 
-
 # ── Aggregated result ─────────────────────────────────────────────────────────
+
 
 @dataclass
 class AggregatedResult:
     """A deduplicated, ranked search result with extracted content."""
+
     search_result: SearchResult
-    content: Optional[ExtractedContent] = None
+    content: ExtractedContent | None = None
     relevance_score: float = 0.0
     query_matches: list[str] = field(default_factory=list)
 
@@ -66,7 +66,7 @@ class AggregatedResult:
         return self.search_result.domain
 
     @property
-    def published_date(self) -> Optional[str]:
+    def published_date(self) -> str | None:
         return self.search_result.published_date
 
     def to_context_string(self, max_length: int = 3_000) -> str:
@@ -107,22 +107,53 @@ TRUSTED_DOMAINS: dict[str, float] = {
     "dartmouth.edu": 0.85,  # +other .edu domains handled below
 }
 
-LOW_QUALITY_DOMAINS: frozenset[str] = frozenset({
-    "pinterest.com", "quora.com",
-    "answers.com", "ask.com",
-    "ehow.com", "wikihow.com",
-    "buzzfeed.com", "listverse.com",
-})
+LOW_QUALITY_DOMAINS: frozenset[str] = frozenset(
+    {
+        "pinterest.com",
+        "quora.com",
+        "answers.com",
+        "ask.com",
+        "ehow.com",
+        "wikihow.com",
+        "buzzfeed.com",
+        "listverse.com",
+    }
+)
 
-STOP_WORDS: frozenset[str] = frozenset({
-    "the", "a", "an", "in", "on", "at", "to", "for",
-    "of", "and", "or", "but", "is", "was", "are", "were",
-    "what", "how", "why", "when", "where", "who",
-    "this", "that", "these", "those",
-})
+STOP_WORDS: frozenset[str] = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "and",
+        "or",
+        "but",
+        "is",
+        "was",
+        "are",
+        "were",
+        "what",
+        "how",
+        "why",
+        "when",
+        "where",
+        "who",
+        "this",
+        "that",
+        "these",
+        "those",
+    }
+)
 
 
 # ── Aggregator ───────────────────────────────────────────────────────────────
+
 
 class SearchAggregator:
     """Aggregate, deduplicate, and rank search results.
@@ -137,9 +168,9 @@ class SearchAggregator:
 
     def __init__(
         self,
-        extractor: Optional[ContentExtractor] = None,
+        extractor: ContentExtractor | None = None,
         max_results_to_fetch: int = 5,
-        token_counter: Optional[TokenCounter] = None,
+        token_counter: TokenCounter | None = None,
     ) -> None:
         self._extractor = extractor or ContentExtractor()
         self.max_results_to_fetch = max_results_to_fetch
@@ -168,8 +199,7 @@ class SearchAggregator:
 
         deduped = self._deduplicate(all_results)
         logger.debug(
-            f"After dedup: {len(deduped)} results "
-            f"(removed {len(all_results) - len(deduped)})"
+            f"After dedup: {len(deduped)} results (removed {len(all_results) - len(deduped)})"
         )
 
         scored = self._score_relevance(query, deduped)
@@ -180,7 +210,7 @@ class SearchAggregator:
             top_n = min(self.max_results_to_fetch, len(scored))
             urls = [r.url for r in scored[:top_n]]
             contents = await self._extractor.extract_many(urls)
-            for agg_result, content in zip(scored[:top_n], contents):
+            for agg_result, content in zip(scored[:top_n], contents, strict=False):
                 if content.success:
                     agg_result.content = content
 
@@ -235,8 +265,7 @@ class SearchAggregator:
         context = header + "\n\n---\n\n".join(sections)
         final_tokens = counter.count_tokens(context)
         logger.debug(
-            f"Context built: {len(sections)} sources, "
-            f"{final_tokens}/{max_total_tokens} tokens"
+            f"Context built: {len(sections)} sources, {final_tokens}/{max_total_tokens} tokens"
         )
         return context
 

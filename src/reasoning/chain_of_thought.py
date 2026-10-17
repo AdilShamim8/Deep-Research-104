@@ -14,17 +14,15 @@ import asyncio
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Optional
+
 from loguru import logger
 
 from src.models.base_model import BaseModel, GenerationConfig, ModelResponse
 
-
 # ── Prompt templates ──────────────────────────────────────────────────────────
 
 ZERO_SHOT_COT_SUFFIX = (
-    "\n\nLet's think through this carefully, step by step, "
-    "before giving the final answer."
+    "\n\nLet's think through this carefully, step by step, before giving the final answer."
 )
 
 STRUCTURED_COT_SYSTEM = """\
@@ -74,20 +72,23 @@ FEW_SHOT_COT_EXAMPLES = [
 
 # ── Data structures ───────────────────────────────────────────────────────────
 
+
 @dataclass
 class CoTResult:
     """Result from a Chain-of-Thought generation."""
+
     answer: str
     reasoning: str
     raw_response: str
-    confidence: float = 1.0          # 1.0 = single sample, <1.0 from voting
+    confidence: float = 1.0  # 1.0 = single sample, <1.0 from voting
     supporting_votes: int = 1
     total_votes: int = 1
-    model_response: Optional[ModelResponse] = None
+    model_response: ModelResponse | None = None
     all_samples: list[str] = field(default_factory=list)
 
 
 # ── Parser ────────────────────────────────────────────────────────────────────
+
 
 class CoTParser:
     """Extract structured reasoning from model output."""
@@ -99,13 +100,9 @@ class CoTParser:
         Falls back to heuristic split if tags not found.
         """
         reasoning_match = re.search(
-            r'<reasoning>(.*?)</reasoning>',
-            text, re.DOTALL | re.IGNORECASE
+            r"<reasoning>(.*?)</reasoning>", text, re.DOTALL | re.IGNORECASE
         )
-        answer_match = re.search(
-            r'<answer>(.*?)</answer>',
-            text, re.DOTALL | re.IGNORECASE
-        )
+        answer_match = re.search(r"<answer>(.*?)</answer>", text, re.DOTALL | re.IGNORECASE)
 
         if reasoning_match and answer_match:
             return (
@@ -115,8 +112,12 @@ class CoTParser:
 
         # Fallback: split on common final-answer markers
         for marker in [
-            "Therefore,", "Thus,", "In conclusion,",
-            "Final answer:", "Answer:", "**Answer**",
+            "Therefore,",
+            "Thus,",
+            "In conclusion,",
+            "Final answer:",
+            "Answer:",
+            "**Answer**",
         ]:
             if marker.lower() in text.lower():
                 idx = text.lower().rfind(marker.lower())
@@ -141,12 +142,13 @@ class CoTParser:
         Lowercases, strips punctuation, collapses whitespace.
         """
         answer = answer.lower().strip()
-        answer = re.sub(r'[^\w\s]', '', answer)
-        answer = re.sub(r'\s+', ' ', answer)
+        answer = re.sub(r"[^\w\s]", "", answer)
+        answer = re.sub(r"\s+", " ", answer)
         return answer
 
 
 # ── Main CoT class ────────────────────────────────────────────────────────────
+
 
 class ChainOfThought:
     """
@@ -171,9 +173,9 @@ class ChainOfThought:
     async def generate(
         self,
         question: str,
-        context: Optional[str] = None,
-        mode: str = "structured",          # "zero_shot" | "few_shot" | "structured"
-        config: Optional[GenerationConfig] = None,
+        context: str | None = None,
+        mode: str = "structured",  # "zero_shot" | "few_shot" | "structured"
+        config: GenerationConfig | None = None,
     ) -> CoTResult:
         """
         Single CoT generation.
@@ -193,9 +195,7 @@ class ChainOfThought:
         logger.debug(f"CoT generate | mode={mode} | model={self.model.model_name}")
         response = await self.model.generate(messages, config)
 
-        reasoning, answer = self.parser.extract_reasoning_and_answer(
-            response.content
-        )
+        reasoning, answer = self.parser.extract_reasoning_and_answer(response.content)
 
         # If model exposes its own reasoning trace, prefer that
         if response.reasoning_content:
@@ -211,11 +211,11 @@ class ChainOfThought:
     async def self_consistency(
         self,
         question: str,
-        context: Optional[str] = None,
+        context: str | None = None,
         n_samples: int = 5,
         mode: str = "structured",
-        config: Optional[GenerationConfig] = None,
-        aggregation: str = "majority_vote",   # "majority_vote" | "weighted"
+        config: GenerationConfig | None = None,
+        aggregation: str = "majority_vote",  # "majority_vote" | "weighted"
     ) -> CoTResult:
         """
         Self-consistency: sample N independent reasoning paths,
@@ -226,20 +226,14 @@ class ChainOfThought:
         """
         config = config or GenerationConfig(
             max_tokens=4096,
-            temperature=0.8,      # Higher temperature for diversity
+            temperature=0.8,  # Higher temperature for diversity
         )
         messages = self._build_messages(question, context, mode)
 
-        logger.info(
-            f"Self-consistency: sampling {n_samples} paths | "
-            f"model={self.model.model_name}"
-        )
+        logger.info(f"Self-consistency: sampling {n_samples} paths | model={self.model.model_name}")
 
         # Sample N paths concurrently
-        tasks = [
-            self.model.generate(messages, config)
-            for _ in range(n_samples)
-        ]
+        tasks = [self.model.generate(messages, config) for _ in range(n_samples)]
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Filter failed responses
@@ -260,19 +254,13 @@ class ChainOfThought:
             parsed_answers.append(answer or resp.content)
 
         # Aggregate
-        best_answer, confidence, votes = self._aggregate_answers(
-            parsed_answers, aggregation
-        )
+        best_answer, confidence, votes = self._aggregate_answers(parsed_answers, aggregation)
 
         # Pick the response whose answer matches the best
         best_reasoning = ""
-        for resp, ans in zip(valid_responses, parsed_answers):
-            if self.parser.normalize_answer(ans) == self.parser.normalize_answer(
-                best_answer
-            ):
-                reasoning, _ = self.parser.extract_reasoning_and_answer(
-                    resp.content
-                )
+        for resp, ans in zip(valid_responses, parsed_answers, strict=False):
+            if self.parser.normalize_answer(ans) == self.parser.normalize_answer(best_answer):
+                reasoning, _ = self.parser.extract_reasoning_and_answer(resp.content)
                 best_reasoning = resp.reasoning_content or reasoning
                 break
 
@@ -296,7 +284,7 @@ class ChainOfThought:
     def _build_messages(
         self,
         question: str,
-        context: Optional[str],
+        context: str | None,
         mode: str,
     ) -> list[dict]:
         """Build messages list for chosen CoT mode."""
@@ -307,15 +295,12 @@ class ChainOfThought:
         elif mode == "structured":
             return self._structured_messages(question, context)
         else:
-            raise ValueError(
-                f"Unknown CoT mode: {mode}. "
-                f"Choose: zero_shot, few_shot, structured"
-            )
+            raise ValueError(f"Unknown CoT mode: {mode}. Choose: zero_shot, few_shot, structured")
 
     def _zero_shot_messages(
         self,
         question: str,
-        context: Optional[str],
+        context: str | None,
     ) -> list[dict]:
         content = ""
         if context:
@@ -326,22 +311,21 @@ class ChainOfThought:
     def _few_shot_messages(
         self,
         question: str,
-        context: Optional[str],
+        context: str | None,
     ) -> list[dict]:
         messages = []
         # Add examples as alternating user/assistant turns
         for ex in FEW_SHOT_COT_EXAMPLES:
-            messages.append({
-                "role": "user",
-                "content": f"Question: {ex['question']}"
-            })
-            messages.append({
-                "role": "assistant",
-                "content": (
-                    f"<reasoning>\n{ex['reasoning']}\n</reasoning>\n"
-                    f"<answer>\n{ex['answer']}\n</answer>"
-                )
-            })
+            messages.append({"role": "user", "content": f"Question: {ex['question']}"})
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": (
+                        f"<reasoning>\n{ex['reasoning']}\n</reasoning>\n"
+                        f"<answer>\n{ex['answer']}\n</answer>"
+                    ),
+                }
+            )
 
         # Add the actual question
         content = ""
@@ -354,7 +338,7 @@ class ChainOfThought:
     def _structured_messages(
         self,
         question: str,
-        context: Optional[str],
+        context: str | None,
     ) -> list[dict]:
         content = ""
         if context:
@@ -383,7 +367,7 @@ class ChainOfThought:
         confidence = vote_count / len(answers)
 
         # Return original (non-normalized) version of best answer
-        for original, norm in zip(answers, normalized):
+        for original, norm in zip(answers, normalized, strict=False):
             if norm == most_common_normalized:
                 return original, confidence, vote_count
 

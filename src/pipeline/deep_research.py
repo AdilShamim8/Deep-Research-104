@@ -28,24 +28,23 @@ Date tag: 17 October 2026.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import re
 import time
-from dataclasses import asdict, dataclass, field
-from typing import Any, AsyncGenerator, Optional
-
-from loguru import logger
+from collections.abc import AsyncGenerator
+from dataclasses import dataclass, field
+from typing import Any
 
 from config.settings import settings
+from loguru import logger
+
 from src.models.base_model import BaseModel, GenerationConfig
 from src.reasoning.chain_of_thought import ChainOfThought
 from src.reasoning.verifier import OutcomeRewardModel
-from src.search.content_extractor import ExtractedContent, extractor
+from src.search.content_extractor import extractor
 from src.search.search_aggregator import AggregatedResult, SearchAggregator
 from src.search.web_search import SearchResponse, search_engine
 from src.utils.token_counter import TokenCounter
-
 
 # ── Prompts ────────────────────────────────────────────────────────────────────
 
@@ -139,9 +138,11 @@ Reply with only: low, medium, or high
 
 # ── Data structures ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class ResearchIteration:
     """Records one iteration of the research loop."""
+
     iteration_number: int
     queries: list[str] = field(default_factory=list)
     search_responses: list[SearchResponse] = field(default_factory=list)
@@ -158,6 +159,7 @@ class ResearchIteration:
 @dataclass
 class ResearchReport:
     """Final output of the deep research pipeline."""
+
     question: str
     answer: str
     sources: list[AggregatedResult] = field(default_factory=list)
@@ -170,7 +172,7 @@ class ResearchReport:
     total_cost_usd: float = 0.0
     synthesis_model: str = ""
     gaps_remaining: list[str] = field(default_factory=list)
-    request_id: Optional[str] = None
+    request_id: str | None = None
 
     @property
     def source_urls(self) -> list[str]:
@@ -204,47 +206,52 @@ class ResearchReport:
 
     def to_json(self) -> str:
         """Serialize the report to JSON. Sources are projected to dicts."""
-        return json.dumps({
-            "question": self.question,
-            "answer": self.answer,
-            "confidence": self.confidence,
-            "sources": [
-                {
-                    "title": s.title,
-                    "url": s.url,
-                    "domain": s.search_result.domain,
-                    "relevance_score": s.relevance_score,
-                    "snippet": s.search_result.snippet,
-                    "published_date": s.search_result.published_date,
-                }
-                for s in self.sources
-            ],
-            "iterations": [
-                {
-                    "iteration_number": it.iteration_number,
-                    "queries": it.queries,
-                    "gaps_identified": it.gaps_identified,
-                    "confidence": it.confidence,
-                    "context_tokens": it.context_tokens,
-                    "duration_ms": it.duration_ms,
-                    "llm_calls": it.llm_calls,
-                    "tokens_used": it.tokens_used,
-                    "cost_usd": it.cost_usd,
-                }
-                for it in self.iterations
-            ],
-            "total_sources_found": self.total_sources_found,
-            "total_search_time_ms": self.total_search_time_ms,
-            "total_llm_calls": self.total_llm_calls,
-            "total_tokens_used": self.total_tokens_used,
-            "total_cost_usd": self.total_cost_usd,
-            "synthesis_model": self.synthesis_model,
-            "gaps_remaining": self.gaps_remaining,
-            "request_id": self.request_id,
-        }, indent=2, ensure_ascii=False)
+        return json.dumps(
+            {
+                "question": self.question,
+                "answer": self.answer,
+                "confidence": self.confidence,
+                "sources": [
+                    {
+                        "title": s.title,
+                        "url": s.url,
+                        "domain": s.search_result.domain,
+                        "relevance_score": s.relevance_score,
+                        "snippet": s.search_result.snippet,
+                        "published_date": s.search_result.published_date,
+                    }
+                    for s in self.sources
+                ],
+                "iterations": [
+                    {
+                        "iteration_number": it.iteration_number,
+                        "queries": it.queries,
+                        "gaps_identified": it.gaps_identified,
+                        "confidence": it.confidence,
+                        "context_tokens": it.context_tokens,
+                        "duration_ms": it.duration_ms,
+                        "llm_calls": it.llm_calls,
+                        "tokens_used": it.tokens_used,
+                        "cost_usd": it.cost_usd,
+                    }
+                    for it in self.iterations
+                ],
+                "total_sources_found": self.total_sources_found,
+                "total_search_time_ms": self.total_search_time_ms,
+                "total_llm_calls": self.total_llm_calls,
+                "total_tokens_used": self.total_tokens_used,
+                "total_cost_usd": self.total_cost_usd,
+                "synthesis_model": self.synthesis_model,
+                "gaps_remaining": self.gaps_remaining,
+                "request_id": self.request_id,
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
 
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
+
 
 class DeepResearchPipeline:
     """Deep Research Pipeline orchestrator.
@@ -260,11 +267,11 @@ class DeepResearchPipeline:
     def __init__(
         self,
         model: BaseModel,
-        judge_model: Optional[BaseModel] = None,
-        max_iterations: Optional[int] = None,
-        queries_per_iteration: Optional[int] = None,
-        max_sources_per_iteration: Optional[int] = None,
-        max_context_tokens: Optional[int] = None,
+        judge_model: BaseModel | None = None,
+        max_iterations: int | None = None,
+        queries_per_iteration: int | None = None,
+        max_sources_per_iteration: int | None = None,
+        max_context_tokens: int | None = None,
     ) -> None:
         self.model = model
         self.judge = judge_model or model
@@ -294,7 +301,7 @@ class DeepResearchPipeline:
         self,
         question: str,
         fast_mode: bool = False,
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
     ) -> ResearchReport:
         """Run the full deep research pipeline.
 
@@ -325,9 +332,7 @@ class DeepResearchPipeline:
 
         for iteration_num in range(1, max_iter + 1):
             iter_start = time.time()
-            logger.info(
-                f"[{request_id or '-'}] Iteration {iteration_num}/{max_iter}"
-            )
+            logger.info(f"[{request_id or '-'}] Iteration {iteration_num}/{max_iter}")
 
             iter_llm_calls_start = self._total_llm_calls
             iter_tokens_start = self._total_tokens
@@ -554,14 +559,16 @@ class DeepResearchPipeline:
                 "metadata": {"confidence": confidence, "gaps": gaps},
             }
 
-            iterations.append(ResearchIteration(
-                iteration_number=iteration_num,
-                queries=queries,
-                search_responses=search_responses,
-                aggregated_results=new_results,
-                gaps_identified=gaps,
-                confidence=confidence,
-            ))
+            iterations.append(
+                ResearchIteration(
+                    iteration_number=iteration_num,
+                    queries=queries,
+                    search_responses=search_responses,
+                    aggregated_results=new_results,
+                    gaps_identified=gaps,
+                    confidence=confidence,
+                )
+            )
 
             if confidence == "high" or not gaps:
                 break
@@ -595,8 +602,8 @@ class DeepResearchPipeline:
         self,
         question: str,
         n: int,
-        prior_context: Optional[str] = None,
-        prior_gaps: Optional[list[str]] = None,
+        prior_context: str | None = None,
+        prior_gaps: list[str] | None = None,
     ) -> list[str]:
         """Generate diverse search queries for the question."""
         prior_section = ""
@@ -615,7 +622,8 @@ class DeepResearchPipeline:
         config = GenerationConfig(max_tokens=512, temperature=0.7)
         try:
             response = await self.model.generate(
-                [{"role": "user", "content": prompt}], config,
+                [{"role": "user", "content": prompt}],
+                config,
             )
             self._track_response(response)
             queries = self._parse_numbered_list(response.content)
@@ -637,13 +645,12 @@ class DeepResearchPipeline:
         config = GenerationConfig(max_tokens=1024, temperature=0.3)
         try:
             response = await self.model.generate(
-                [{"role": "user", "content": prompt}], config,
+                [{"role": "user", "content": prompt}],
+                config,
             )
             self._track_response(response)
 
-            gaps_match = re.search(
-                r"<gaps>(.*?)</gaps>", response.content, re.DOTALL
-            )
+            gaps_match = re.search(r"<gaps>(.*?)</gaps>", response.content, re.DOTALL)
             gaps: list[str] = []
             if gaps_match:
                 gap_text = gaps_match.group(1)
@@ -654,7 +661,8 @@ class DeepResearchPipeline:
 
             conf_match = re.search(
                 r"<confidence>(low|medium|high)</confidence>",
-                response.content, re.IGNORECASE,
+                response.content,
+                re.IGNORECASE,
             )
             confidence = conf_match.group(1).lower() if conf_match else "medium"
 
@@ -672,12 +680,12 @@ class DeepResearchPipeline:
         """Synthesize research context into final answer."""
         max_context_tokens = self.model.get_context_limit() - 2000
         if self._token_counter.count_tokens(context) > max_context_tokens:
-            context = self._token_counter.truncate_text_to_tokens(
-                context, max_context_tokens
-            )
+            context = self._token_counter.truncate_text_to_tokens(context, max_context_tokens)
 
         prompt = SYNTHESIS_PROMPT.format(
-            question=question, n_sources=n_sources, context=context,
+            question=question,
+            n_sources=n_sources,
+            context=context,
         )
 
         config = GenerationConfig(
@@ -690,7 +698,8 @@ class DeepResearchPipeline:
 
         try:
             response = await self.model.generate(
-                [{"role": "user", "content": prompt}], config,
+                [{"role": "user", "content": prompt}],
+                config,
             )
             self._track_response(response)
             return response.content

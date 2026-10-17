@@ -17,19 +17,19 @@ This bootstraps reasoning capability from a small labeled dataset.
 Date tag: 17 October 2026.
 """
 
-import json
 import asyncio
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Callable
+
 from loguru import logger
 
 from src.models.base_model import BaseModel, GenerationConfig
 from src.reasoning.chain_of_thought import ChainOfThought, CoTParser
-from src.reasoning.verifier import BaseVerifier, RuleBasedVerifier
-
+from src.reasoning.verifier import BaseVerifier
 
 # ── Data structures ───────────────────────────────────────────────────────────
+
 
 @dataclass
 class TrainingExample:
@@ -37,11 +37,12 @@ class TrainingExample:
     A single (question, reasoning, answer) training tuple.
     Collected by STaR algorithm.
     """
+
     question: str
     reasoning: str
     answer: str
     correct: bool
-    source: str = "direct"          # "direct" | "rationalization"
+    source: str = "direct"  # "direct" | "rationalization"
     model_name: str = ""
     iteration: int = 0
     metadata: dict = field(default_factory=dict)
@@ -55,8 +56,8 @@ class TrainingExample:
                 "content": (
                     f"<reasoning>\n{self.reasoning}\n</reasoning>\n"
                     f"<answer>\n{self.answer}\n</answer>"
-                )
-            }
+                ),
+            },
         ]
 
     def to_dict(self) -> dict:
@@ -75,6 +76,7 @@ class TrainingExample:
 @dataclass
 class STaRDataset:
     """Collection of STaR training examples."""
+
     examples: list[TrainingExample] = field(default_factory=list)
 
     @property
@@ -110,26 +112,28 @@ class STaRDataset:
         """Convert to HuggingFace Dataset for training."""
         try:
             from datasets import Dataset
+
             records = []
             for ex in self.examples:
                 messages = ex.to_messages()
-                records.append({
-                    "messages": messages,
-                    "question": ex.question,
-                    "answer": ex.answer,
-                    "source": ex.source,
-                    "iteration": ex.iteration,
-                })
+                records.append(
+                    {
+                        "messages": messages,
+                        "question": ex.question,
+                        "answer": ex.answer,
+                        "source": ex.source,
+                        "iteration": ex.iteration,
+                    }
+                )
             return Dataset.from_list(records)
         except ImportError:
-            raise ImportError(
-                "Install 'datasets' package: pip install datasets"
-            )
+            raise ImportError("Install 'datasets' package: pip install datasets")
 
 
 @dataclass
 class STaRConfig:
     """Configuration for STaR training loop."""
+
     max_iterations: int = 3
     n_samples_per_problem: int = 1
     temperature: float = 0.7
@@ -141,6 +145,7 @@ class STaRConfig:
 
 
 # ── STaR Trainer ──────────────────────────────────────────────────────────────
+
 
 class STaRTrainer:
     """
@@ -163,7 +168,7 @@ class STaRTrainer:
         self,
         model: BaseModel,
         verifier: BaseVerifier,
-        config: Optional[STaRConfig] = None,
+        config: STaRConfig | None = None,
     ):
         self.model = model
         self.verifier = verifier
@@ -176,7 +181,7 @@ class STaRTrainer:
     async def run(
         self,
         problems: list[dict],
-        n_iterations: Optional[int] = None,
+        n_iterations: int | None = None,
     ) -> STaRDataset:
         """
         Run STaR algorithm for N iterations.
@@ -197,14 +202,10 @@ class STaRTrainer:
         )
 
         for iteration in range(1, n_iterations + 1):
-            logger.info(
-                f"STaR iteration {iteration}/{n_iterations}"
-            )
+            logger.info(f"STaR iteration {iteration}/{n_iterations}")
 
             # Process problems in batches
-            iteration_examples = await self._process_iteration(
-                problems, iteration
-            )
+            iteration_examples = await self._process_iteration(problems, iteration)
             all_examples.extend(iteration_examples)
 
             dataset = STaRDataset(examples=all_examples)
@@ -217,18 +218,14 @@ class STaRTrainer:
             )
 
             # Save checkpoint
-            checkpoint_path = (
-                self.config.save_dataset_path
-                .replace(".json", f"_iter{iteration}.json")
+            checkpoint_path = self.config.save_dataset_path.replace(
+                ".json", f"_iter{iteration}.json"
             )
             dataset.save(checkpoint_path)
 
             # Early stopping if high accuracy
             if dataset.accuracy >= 0.95:
-                logger.info(
-                    f"High accuracy {dataset.accuracy:.2%} reached, "
-                    f"stopping STaR loop"
-                )
+                logger.info(f"High accuracy {dataset.accuracy:.2%} reached, stopping STaR loop")
                 break
 
         final_dataset = STaRDataset(examples=all_examples)
@@ -243,7 +240,7 @@ class STaRTrainer:
         """Process all problems for one STaR iteration."""
         semaphore = asyncio.Semaphore(self.config.concurrent_requests)
 
-        async def process_one(problem: dict) -> Optional[TrainingExample]:
+        async def process_one(problem: dict) -> TrainingExample | None:
             async with semaphore:
                 return await self._process_problem(problem, iteration)
 
@@ -263,7 +260,7 @@ class STaRTrainer:
         self,
         problem: dict,
         iteration: int,
-    ) -> Optional[TrainingExample]:
+    ) -> TrainingExample | None:
         """
         Process a single problem through STaR algorithm.
 
@@ -341,10 +338,7 @@ class STaRTrainer:
                         )
 
             # Neither direct nor rationalized was correct
-            logger.debug(
-                f"Problem not solved: {question[:50]}... "
-                f"(got: {cot_result.answer[:30]})"
-            )
+            logger.debug(f"Problem not solved: {question[:50]}... (got: {cot_result.answer[:30]})")
             return None
 
         except Exception as e:
@@ -356,7 +350,7 @@ class STaRTrainer:
         question: str,
         correct_answer: str,
         config: GenerationConfig,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """
         Generate reasoning that leads to the known correct answer.
         Hint: "The answer is X. Show your reasoning."
@@ -380,9 +374,7 @@ class STaRTrainer:
                 [{"role": "user", "content": rationalization_prompt}],
                 rat_config,
             )
-            reasoning, answer = self._parser.extract_reasoning_and_answer(
-                response.content
-            )
+            reasoning, answer = self._parser.extract_reasoning_and_answer(response.content)
             return {
                 "reasoning": reasoning,
                 "answer": answer or correct_answer,
@@ -393,6 +385,7 @@ class STaRTrainer:
 
 
 # ── SFT Fine-tuning wrapper ───────────────────────────────────────────────────
+
 
 class SFTTrainer:
     """
@@ -427,13 +420,13 @@ class SFTTrainer:
         """Fine-tune model on STaR dataset."""
         try:
             import torch
+            from peft import LoraConfig, TaskType, get_peft_model
             from transformers import AutoModelForCausalLM, AutoTokenizer
-            from trl import SFTTrainer as HFSFTTrainer, SFTConfig
-            from peft import LoraConfig, get_peft_model, TaskType
+            from trl import SFTConfig
+            from trl import SFTTrainer as HFSFTTrainer
         except ImportError as e:
             raise ImportError(
-                f"Training requires additional packages: {e}\n"
-                f"pip install transformers trl peft"
+                f"Training requires additional packages: {e}\npip install transformers trl peft"
             )
 
         logger.info(
@@ -466,8 +459,13 @@ class SFTTrainer:
                 lora_alpha=self.lora_alpha,
                 lora_dropout=0.1,
                 target_modules=[
-                    "q_proj", "k_proj", "v_proj",
-                    "o_proj", "gate_proj", "up_proj", "down_proj"
+                    "q_proj",
+                    "k_proj",
+                    "v_proj",
+                    "o_proj",
+                    "gate_proj",
+                    "up_proj",
+                    "down_proj",
                 ],
                 bias="none",
             )

@@ -7,21 +7,18 @@ HTTP session so the tests run fast and deterministically in CI.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pytest
-
 from src.search.search_aggregator import SearchAggregator
 from src.search.web_search import (
     DuckDuckGoProvider,
-    SearchResult,
     SearchResponse,
+    SearchResult,
     _is_safe_url,
     _validate_query,
 )
 
-
 # ── URL safety ───────────────────────────────────────────────────────────────
+
 
 class TestUrlSafety:
     def test_http_url_is_safe(self) -> None:
@@ -41,6 +38,7 @@ class TestUrlSafety:
 
 
 # ── Query validation ──────────────────────────────────────────────────────────
+
 
 class TestQueryValidation:
     def test_empty_query_raises(self) -> None:
@@ -62,6 +60,7 @@ class TestQueryValidation:
 
 # ── DuckDuckGo provider availability ──────────────────────────────────────────
 
+
 class TestDuckDuckGoProvider:
     def test_name(self) -> None:
         provider = DuckDuckGoProvider(max_results=5)
@@ -77,6 +76,7 @@ class TestDuckDuckGoProvider:
 
 
 # ── Aggregator dedup ──────────────────────────────────────────────────────────
+
 
 class TestAggregatorDedup:
     def setup_method(self) -> None:
@@ -130,6 +130,7 @@ class TestAggregatorDedup:
 
 # ── Aggregator relevance scoring ──────────────────────────────────────────────
 
+
 class TestAggregatorRelevance:
     def setup_method(self) -> None:
         self.agg = SearchAggregator()
@@ -142,9 +143,12 @@ class TestAggregatorRelevance:
         position: int = 1,
     ) -> SearchResult:
         return SearchResult(
-            title=title, url=f"https://{domain}/x",
-            snippet=snippet, position=position,
-            domain=domain, provider="duckduckgo",
+            title=title,
+            url=f"https://{domain}/x",
+            snippet=snippet,
+            position=position,
+            domain=domain,
+            provider="duckduckgo",
         )
 
     def test_score_in_unit_interval(self) -> None:
@@ -154,11 +158,13 @@ class TestAggregatorRelevance:
 
     def test_trusted_domain_gets_boost(self) -> None:
         wiki = self._make_result(
-            "Fusion energy", "Fusion energy article",
+            "Fusion energy",
+            "Fusion energy article",
             domain="en.wikipedia.org",
         )
         random = self._make_result(
-            "Fusion energy", "Fusion energy article",
+            "Fusion energy",
+            "Fusion energy article",
             domain="random-blog.example",
         )
         score_wiki = self.agg._compute_relevance(wiki, {"fusion", "energy"})
@@ -167,30 +173,34 @@ class TestAggregatorRelevance:
 
     def test_low_quality_domain_gets_penalty(self) -> None:
         good = self._make_result(
-            "Fusion energy", "Fusion energy breakthrough",
+            "Fusion energy",
+            "Fusion energy breakthrough",
             domain="nature.com",
         )
         bad = self._make_result(
-            "Fusion energy", "Fusion energy breakthrough",
+            "Fusion energy",
+            "Fusion energy breakthrough",
             domain="pinterest.com",
         )
-        assert self.agg._compute_relevance(good, {"fusion", "energy"}) > \
-               self.agg._compute_relevance(bad, {"fusion", "energy"})
+        assert self.agg._compute_relevance(
+            good, {"fusion", "energy"}
+        ) > self.agg._compute_relevance(bad, {"fusion", "energy"})
 
     def test_earlier_position_scores_higher(self) -> None:
         early = self._make_result("T", "snippet", position=1)
         late = self._make_result("T", "snippet", position=10)
-        assert self.agg._compute_relevance(early, set()) > \
-               self.agg._compute_relevance(late, set())
+        assert self.agg._compute_relevance(early, set()) > self.agg._compute_relevance(late, set())
 
     def test_query_term_coverage_matters(self) -> None:
         full = self._make_result("alpha beta", "alpha beta gamma")
         partial = self._make_result("alpha", "alpha")
-        assert self.agg._compute_relevance(full, {"alpha", "beta", "gamma"}) > \
-               self.agg._compute_relevance(partial, {"alpha", "beta", "gamma"})
+        assert self.agg._compute_relevance(
+            full, {"alpha", "beta", "gamma"}
+        ) > self.agg._compute_relevance(partial, {"alpha", "beta", "gamma"})
 
 
 # ── Aggregator context building ───────────────────────────────────────────────
+
 
 class TestAggregatorContext:
     def setup_method(self) -> None:
@@ -202,11 +212,16 @@ class TestAggregatorContext:
 
     def test_context_includes_source_title(self) -> None:
         result = SearchResult(
-            title="My Source", url="https://example.com/x",
-            snippet="snippet text", domain="example.com",
-            provider="duckduckgo", position=1, relevance_score=0.5,
+            title="My Source",
+            url="https://example.com/x",
+            snippet="snippet text",
+            domain="example.com",
+            provider="duckduckgo",
+            position=1,
+            relevance_score=0.5,
         )
         from src.search.search_aggregator import AggregatedResult
+
         agg = AggregatedResult(search_result=result, relevance_score=0.5)
         ctx = self.agg.build_context_string([agg], max_total_tokens=1_000)
         assert "My Source" in ctx
@@ -214,11 +229,15 @@ class TestAggregatorContext:
 
 # ── SearchResponse dataclass ──────────────────────────────────────────────────
 
+
 class TestSearchResponse:
     def test_has_results_true_when_results_present(self) -> None:
         r = SearchResult(
-            title="t", url="https://x.com", snippet="s",
-            position=1, provider="test",
+            title="t",
+            url="https://x.com",
+            snippet="s",
+            position=1,
+            provider="test",
         )
         resp = SearchResponse(query="q", results=[r], provider="test")
         assert resp.has_results
@@ -229,6 +248,9 @@ class TestSearchResponse:
 
     def test_has_results_false_when_error_set(self) -> None:
         resp = SearchResponse(
-            query="q", results=[], provider="test", error="boom",
+            query="q",
+            results=[],
+            provider="test",
+            error="boom",
         )
         assert not resp.has_results

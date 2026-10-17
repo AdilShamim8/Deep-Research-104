@@ -12,8 +12,6 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
-
 from src.utils.token_counter import (
     MODEL_CONTEXT_LIMITS,
     MODEL_OUTPUT_LIMITS,
@@ -21,8 +19,8 @@ from src.utils.token_counter import (
     count_tokens,
 )
 
-
 # ── Plain text counting ──────────────────────────────────────────────────────
+
 
 class TestCountTokens:
     def test_empty_returns_zero(self) -> None:
@@ -43,6 +41,7 @@ class TestCountTokens:
 
 
 # ── Message-array counting ──────────────────────────────────────────────────────
+
 
 class TestCountMessages:
     def test_single_user_message_includes_overhead(self) -> None:
@@ -71,13 +70,11 @@ class TestCountMessages:
             }
         ]
         text_only = [{"role": "user", "content": "describe this"}]
-        assert (
-            c.count_messages_tokens(msgs) - c.count_messages_tokens(text_only)
-            == 85
-        )
+        assert c.count_messages_tokens(msgs) - c.count_messages_tokens(text_only) == 85
 
 
 # ── Context / output limits ───────────────────────────────────────────────────
+
 
 class TestLimits:
     def test_known_model_context_limit(self) -> None:
@@ -100,6 +97,7 @@ class TestLimits:
 
 # ── Fit checking ────────────────────────────────────────────────────────────────
 
+
 class TestFitsInContext:
     def test_small_messages_fit(self) -> None:
         c = TokenCounter("gpt-4o")
@@ -113,12 +111,13 @@ class TestFitsInContext:
         c = TokenCounter("gpt-4o")
         huge = "x" * 1_000_000
         msgs = [{"role": "user", "content": huge}]
-        fits, count, available = c.check_fits_in_context(msgs)
+        fits, _count, available = c.check_fits_in_context(msgs)
         assert not fits
         assert available == 0  # clamped
 
 
 # ── Truncation ──────────────────────────────────────────────────────────────────
+
 
 class TestTruncation:
     def test_short_text_unchanged(self) -> None:
@@ -140,6 +139,7 @@ class TestTruncation:
 
 
 # ── Message truncation ────────────────────────────────────────────────────────────
+
 
 class TestTruncateMessages:
     def test_small_messages_unchanged(self) -> None:

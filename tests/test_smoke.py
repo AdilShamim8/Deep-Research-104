@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 def client() -> TestClient:
     """Spin up the full FastAPI app once for the whole module."""
     from src.api.main import create_app
+
     app = create_app()
     return TestClient(app)
 

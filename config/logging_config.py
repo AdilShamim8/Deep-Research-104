@@ -24,7 +24,6 @@ from loguru import logger
 
 from config.settings import settings
 
-
 # ── Request-scoped context (for correlation IDs) ──────────────────────────────
 # Set by FastAPI middleware on every request; consumed by the JSON formatter
 # so every log line within a request carries the same request_id.
@@ -35,6 +34,7 @@ trace_id_ctx: ContextVar[str] = ContextVar("trace_id", default="")
 
 
 # ── JSON formatter ────────────────────────────────────────────────────────────
+
 
 def serialize_record(record: dict) -> str:
     """Serialize a loguru record into a single-line JSON string.
@@ -81,12 +81,14 @@ def _format_exception(exc) -> str:
     """Stringify an exception while keeping it readable in JSON."""
     try:
         import traceback
+
         return "".join(traceback.format_exception(exc))
     except Exception:
         return str(exc)
 
 
 # ── Pretty dev formatter ─────────────────────────────────────────────────────
+
 
 def pretty_format(record: dict) -> str:
     """Colored multi-field format for interactive development."""
@@ -104,6 +106,7 @@ def pretty_format(record: dict) -> str:
 
 # ── Public setup ──────────────────────────────────────────────────────────────
 
+
 def setup_logging() -> None:
     """Configure loguru sinks based on app_env.
 
@@ -119,9 +122,9 @@ def setup_logging() -> None:
             level=settings.log_level,
             serialize=False,
             backtrace=False,
-            diagnose=False,            # Don't leak variable values in prod
-            enqueue=True,              # Thread-safe, non-blocking
-            catch=True,                # Don't crash on logger errors
+            diagnose=False,  # Don't leak variable values in prod
+            enqueue=True,  # Thread-safe, non-blocking
+            catch=True,  # Don't crash on logger errors
         )
 
         # ── File: warnings+ with rotation ──────────────────────────────────
@@ -194,6 +197,7 @@ def setup_logging() -> None:
 
 
 # ── Helpers for request-scoped binding ───────────────────────────────────────
+
 
 def bind_request_id(request_id: str) -> None:
     """Set the current request_id for log correlation. Clear at request end."""

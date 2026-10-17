@@ -24,21 +24,21 @@ from src.training.reward_models import (
 )
 from src.training.rl_trainer import GRPOCollector, GRPOTrainer, RLConfig
 from src.training.self_refinement import SelfRefinementEngine
-from src.training.star_trainer import STaRDataset, STaRTrainer, SFTTrainer
+from src.training.star_trainer import SFTTrainer, STaRDataset, STaRTrainer
 
 __all__ = [
-    # STaR
-    "STaRTrainer",
-    "STaRDataset",
-    "SFTTrainer",
-    # Reward modeling
-    "RewardModelTrainer",
-    "SyntheticPreferenceGenerator",
-    "PreferencePair",
+    "GRPOCollector",
     # RL
     "GRPOTrainer",
-    "GRPOCollector",
+    "PreferencePair",
     "RLConfig",
+    # Reward modeling
+    "RewardModelTrainer",
+    "SFTTrainer",
+    "STaRDataset",
+    # STaR
+    "STaRTrainer",
     # Self-refinement
     "SelfRefinementEngine",
+    "SyntheticPreferenceGenerator",
 ]

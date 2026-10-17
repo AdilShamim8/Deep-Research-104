@@ -10,18 +10,17 @@ covered by the integration test suite.
 from __future__ import annotations
 
 import pytest
-
 from src.search.content_extractor import (
     BLOCKED_DOMAINS,
     BLOCKED_EXTENSIONS,
-    ContentExtractor,
-    ExtractedContent,
     MAX_HTML_BYTES,
     USER_AGENT,
+    ContentExtractor,
+    ExtractedContent,
 )
 
-
 # ── ExtractedContent dataclass ────────────────────────────────────────────────
+
 
 class TestExtractedContent:
     def test_basic_construction(self) -> None:
@@ -63,14 +62,22 @@ class TestExtractedContent:
 
 # ── URL safety ────────────────────────────────────────────────────────────────
 
+
 class TestUrlSafety:
     def setup_method(self) -> None:
         self.extractor = ContentExtractor()
 
     def test_blocked_social_domains_rejected(self) -> None:
-        for domain in ("youtube.com", "twitter.com", "instagram.com",
-                        "facebook.com", "tiktok.com", "reddit.com",
-                        "linkedin.com", "pinterest.com"):
+        for domain in (
+            "youtube.com",
+            "twitter.com",
+            "instagram.com",
+            "facebook.com",
+            "tiktok.com",
+            "reddit.com",
+            "linkedin.com",
+            "pinterest.com",
+        ):
             reason = self.extractor._should_skip(f"https://{domain}/page")
             assert reason is not None, f"Should reject {domain}"
             assert "Blocked domain" in reason
@@ -100,6 +107,7 @@ class TestUrlSafety:
 
 # ── Module-level constants ────────────────────────────────────────────────────
 
+
 class TestConstants:
     def test_max_html_bytes_is_reasonable(self) -> None:
         # 2 MiB
@@ -120,6 +128,7 @@ class TestConstants:
 
 
 # ── Text cleaning ──────────────────────────────────────────────────────────────
+
 
 class TestCleanText:
     def test_collapses_whitespace(self) -> None:

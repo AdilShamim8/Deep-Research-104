@@ -1,8 +1,8 @@
 """Integration tests for the full pipeline."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from src.models.base_model import ModelResponse
 
 
@@ -41,21 +41,19 @@ def make_research_model(answer: str = "Fusion energy is advancing."):
 
 @pytest.mark.asyncio
 class TestDeepResearchPipeline:
-
     async def test_pipeline_runs(self):
         """Test that pipeline completes without errors."""
         from src.pipeline.deep_research import DeepResearchPipeline
 
         model = make_research_model()
 
-        with patch(
-            "src.pipeline.deep_research.search_engine"
-        ) as mock_search, patch(
-            "src.pipeline.deep_research.extractor"
-        ) as mock_extractor:
-
+        with (
+            patch("src.pipeline.deep_research.search_engine") as mock_search,
+            patch("src.pipeline.deep_research.extractor") as mock_extractor,
+        ):
             # Mock search results
             from src.search.web_search import SearchResponse, SearchResult
+
             mock_result = SearchResult(
                 title="Fusion Energy Article",
                 url="https://example.com/fusion",
@@ -69,23 +67,20 @@ class TestDeepResearchPipeline:
                 provider="mock",
                 total_results=1,
             )
-            mock_search.multi_search = AsyncMock(
-                return_value=[mock_search_response]
-            )
+            mock_search.multi_search = AsyncMock(return_value=[mock_search_response])
 
             # Mock content extraction
             from src.search.content_extractor import ExtractedContent
+
             mock_content = ExtractedContent(
                 url="https://example.com/fusion",
                 title="Fusion Energy Article",
                 text="Fusion energy research is advancing rapidly. "
-                     "ITER project is making significant progress.",
+                "ITER project is making significant progress.",
                 success=True,
                 extraction_method="mock",
             )
-            mock_extractor.extract_many = AsyncMock(
-                return_value=[mock_content]
-            )
+            mock_extractor.extract_many = AsyncMock(return_value=[mock_content])
 
             pipeline = DeepResearchPipeline(
                 model=model,
@@ -109,9 +104,7 @@ class TestDeepResearchPipeline:
         model = make_research_model()
         pipeline = DeepResearchPipeline(model=model, max_iterations=1)
 
-        queries = await pipeline._generate_queries(
-            "What is fusion energy?", n=3
-        )
+        queries = await pipeline._generate_queries("What is fusion energy?", n=3)
 
         assert isinstance(queries, list)
         assert len(queries) >= 1
@@ -157,7 +150,6 @@ class TestDeepResearchPipeline:
 
 @pytest.mark.asyncio
 class TestMetaCoT:
-
     async def test_meta_cot_parses_actions(self):
         """Test action tag parsing."""
         from src.pipeline.meta_cot import MetaCoT
@@ -190,14 +182,10 @@ class TestMetaCoT:
         async def mock_generate(messages, config=None):
             call_count[0] += 1
             if call_count[0] == 1:
-                content = (
-                    "<think>Let me think about this.</think>\n"
-                    "<search>test query</search>"
-                )
+                content = "<think>Let me think about this.</think>\n<search>test query</search>"
             else:
                 content = (
-                    "<think>I now have enough info.</think>\n"
-                    "<answer>The answer is 42.</answer>"
+                    "<think>I now have enough info.</think>\n<answer>The answer is 42.</answer>"
                 )
             return ModelResponse(
                 content=content,
@@ -210,10 +198,9 @@ class TestMetaCoT:
         model.get_context_limit.return_value = 128_000
         model.generate = mock_generate
 
-        with patch(
-            "src.pipeline.meta_cot.search_engine"
-        ) as mock_search:
+        with patch("src.pipeline.meta_cot.search_engine") as mock_search:
             from src.search.web_search import SearchResponse
+
             mock_search.search = AsyncMock(
                 return_value=SearchResponse(
                     query="test",

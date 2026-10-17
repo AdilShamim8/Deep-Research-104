@@ -31,22 +31,22 @@ from src.search.web_search import (
 )
 
 __all__ = [
-    # Engine + types
-    "search_engine",
-    "FallbackSearchEngine",
-    "SearchResult",
-    "SearchResponse",
+    "AggregatedResult",
     # Provider base + impls
     "BaseSearchProvider",
-    "DuckDuckGoProvider",
-    "SerpAPIProvider",
-    "BraveSearchProvider",
     "BingSearchProvider",
-    # Extraction
-    "extractor",
+    "BraveSearchProvider",
     "ContentExtractor",
+    "DuckDuckGoProvider",
     "ExtractedContent",
+    "FallbackSearchEngine",
     # Aggregation
     "SearchAggregator",
-    "AggregatedResult",
+    "SearchResponse",
+    "SearchResult",
+    "SerpAPIProvider",
+    # Extraction
+    "extractor",
+    # Engine + types
+    "search_engine",
 ]

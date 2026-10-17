@@ -20,51 +20,48 @@ import asyncio
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Optional
 
 from loguru import logger
 
-from config.settings import settings
-
-
 # ── Rate limit tables ────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class Limit:
-    rpm: int        # requests per minute
-    tpm: int        # tokens per minute
-    burst: int      # max instantaneous requests allowed
+    rpm: int  # requests per minute
+    tpm: int  # tokens per minute
+    burst: int  # max instantaneous requests allowed
 
 
 DEFAULT_LIMITS: dict[str, Limit] = {
     # OpenAI o-series (tier-2 numbers, conservative)
-    "o3":        Limit(rpm=500,  tpm=10_000_000, burst=10),
-    "o3-mini":   Limit(rpm=1_000, tpm=50_000_000, burst=20),
-    "o3-pro":    Limit(rpm=200,  tpm=5_000_000,  burst=5),
-    "o1":        Limit(rpm=500,  tpm=10_000_000, burst=10),
-    "o1-mini":   Limit(rpm=1_000, tpm=50_000_000, burst=20),
-    "o1-preview":Limit(rpm=50,   tpm=1_000_000,  burst=5),
+    "o3": Limit(rpm=500, tpm=10_000_000, burst=10),
+    "o3-mini": Limit(rpm=1_000, tpm=50_000_000, burst=20),
+    "o3-pro": Limit(rpm=200, tpm=5_000_000, burst=5),
+    "o1": Limit(rpm=500, tpm=10_000_000, burst=10),
+    "o1-mini": Limit(rpm=1_000, tpm=50_000_000, burst=20),
+    "o1-preview": Limit(rpm=50, tpm=1_000_000, burst=5),
     # Standard GPT models
-    "gpt-4o":    Limit(rpm=5_000, tpm=800_000,  burst=20),
+    "gpt-4o": Limit(rpm=5_000, tpm=800_000, burst=20),
     "gpt-4o-mini": Limit(rpm=30_000, tpm=1_500_000, burst=50),
     "gpt-4-turbo": Limit(rpm=10_000, tpm=2_000_000, burst=20),
     "gpt-3.5-turbo": Limit(rpm=30_000, tpm=2_000_000, burst=50),
     # DeepSeek (default tier-1)
-    "deepseek-reasoner": Limit(rpm=60,  tpm=2_000_000, burst=5),
-    "deepseek-chat":     Limit(rpm=60,  tpm=2_000_000, burst=5),
+    "deepseek-reasoner": Limit(rpm=60, tpm=2_000_000, burst=5),
+    "deepseek-chat": Limit(rpm=60, tpm=2_000_000, burst=5),
     # Local (effectively unlimited, but cap to protect GPU)
-    "deepseek-r1":  Limit(rpm=120, tpm=1_000_000, burst=10),
-    "llama3":       Limit(rpm=120, tpm=1_000_000, burst=10),
-    "mistral":      Limit(rpm=120, tpm=1_000_000, burst=10),
-    "qwen2":        Limit(rpm=120, tpm=1_000_000, burst=10),
-    "ollama":       Limit(rpm=120, tpm=1_000_000, burst=10),
+    "deepseek-r1": Limit(rpm=120, tpm=1_000_000, burst=10),
+    "llama3": Limit(rpm=120, tpm=1_000_000, burst=10),
+    "mistral": Limit(rpm=120, tpm=1_000_000, burst=10),
+    "qwen2": Limit(rpm=120, tpm=1_000_000, burst=10),
+    "ollama": Limit(rpm=120, tpm=1_000_000, burst=10),
     # Search providers
-    "duckduckgo":   Limit(rpm=60,  tpm=0,        burst=5),
-    "serpapi":      Limit(rpm=100, tpm=0,       burst=10),
-    "brave":        Limit(rpm=100, tpm=0,       burst=10),
-    "bing":         Limit(rpm=300, tpm=0,       burst=20),
+    "duckduckgo": Limit(rpm=60, tpm=0, burst=5),
+    "serpapi": Limit(rpm=100, tpm=0, burst=10),
+    "brave": Limit(rpm=100, tpm=0, burst=10),
+    "bing": Limit(rpm=300, tpm=0, burst=20),
     # Default
-    "default":      Limit(rpm=60,  tpm=100_000,  burst=5),
+    "default": Limit(rpm=60, tpm=100_000, burst=5),
 }
 
 
@@ -79,6 +76,7 @@ def _get_limits(model: str) -> Limit:
 
 
 # ── In-process limiter ────────────────────────────────────────────────────────
+
 
 class InProcessRateLimiter:
     """Per-model async-safe token-bucket limiter (single-process).

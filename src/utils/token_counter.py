@@ -23,11 +23,9 @@ Date tag: 17 October 2026.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Optional, Union
 
 import tiktoken
 from loguru import logger
-
 
 # ── Model -> encoding mapping ─────────────────────────────────────────────────
 
@@ -129,6 +127,7 @@ MODEL_OUTPUT_LIMITS: dict[str, int] = {
 
 # ── Encoding cache ────────────────────────────────────────────────────────────
 
+
 @lru_cache(maxsize=16)
 def _get_encoding(encoding_name: str) -> tiktoken.Encoding:
     """Cached encoding lookup. Avoids re-reading the BPE file each call."""
@@ -136,8 +135,7 @@ def _get_encoding(encoding_name: str) -> tiktoken.Encoding:
         return tiktoken.get_encoding(encoding_name)
     except Exception as e:
         logger.warning(
-            f"Could not load tiktoken encoding {encoding_name!r}: {e}. "
-            f"Falling back to cl100k_base."
+            f"Could not load tiktoken encoding {encoding_name!r}: {e}. Falling back to cl100k_base."
         )
         return tiktoken.get_encoding("cl100k_base")
 
@@ -157,6 +155,7 @@ def _encoding_for_model(model: str) -> tiktoken.Encoding:
 
 # ── Token counter ─────────────────────────────────────────────────────────────
 
+
 class TokenCounter:
     """
     Accurate token counting with safety margins.
@@ -171,7 +170,7 @@ class TokenCounter:
 
     # ── Plain text counting ───────────────────────────────────────────────
 
-    def count_tokens(self, text: Union[str, None]) -> int:
+    def count_tokens(self, text: str | None) -> int:
         """Count tokens in a text string. None / empty -> 0."""
         if not text:
             return 0
@@ -199,8 +198,14 @@ class TokenCounter:
         for message in messages:
             total += 4  # per-message overhead
             for key, value in message.items():
-                if key not in ("role", "content", "name", "tool_calls",
-                                "tool_call_id", "function_call"):
+                if key not in (
+                    "role",
+                    "content",
+                    "name",
+                    "tool_calls",
+                    "tool_call_id",
+                    "function_call",
+                ):
                     continue
                 if isinstance(value, str):
                     total += self.count_tokens(value)
@@ -224,7 +229,7 @@ class TokenCounter:
 
     # ── Limit lookups ──────────────────────────────────────────────────────
 
-    def get_context_limit(self, model: Optional[str] = None) -> int:
+    def get_context_limit(self, model: str | None = None) -> int:
         """Get context window limit for a model."""
         m = model or self.model
         if m in MODEL_CONTEXT_LIMITS:
@@ -235,7 +240,7 @@ class TokenCounter:
                 return limit
         return 8_000  # conservative default
 
-    def get_output_limit(self, model: Optional[str] = None) -> int:
+    def get_output_limit(self, model: str | None = None) -> int:
         """Get max output tokens for a model."""
         m = model or self.model
         if m in MODEL_OUTPUT_LIMITS:
@@ -251,7 +256,7 @@ class TokenCounter:
         self,
         messages: list[dict],
         reserved_output_tokens: int = 2_048,
-        model: Optional[str] = None,
+        model: str | None = None,
     ) -> tuple[bool, int, int]:
         """
         Check if messages fit in context window.
@@ -322,9 +327,7 @@ class TokenCounter:
             3. Drop middle messages (oldest first) until it fits.
             4. If still over, truncate the longest remaining message's content.
         """
-        fits, _, _ = self.check_fits_in_context(
-            messages, reserved_output_tokens=max_tokens
-        )
+        fits, _, _ = self.check_fits_in_context(messages, reserved_output_tokens=max_tokens)
         if fits:
             return messages
 
@@ -337,9 +340,7 @@ class TokenCounter:
         # Drop middle messages oldest-first until it fits
         while middle:
             result = system_msgs + middle + preserved_end
-            fits, _, _ = self.check_fits_in_context(
-                result, reserved_output_tokens=max_tokens
-            )
+            fits, _, _ = self.check_fits_in_context(result, reserved_output_tokens=max_tokens)
             if fits:
                 return result
             middle = middle[1:]
@@ -356,6 +357,7 @@ class TokenCounter:
 
 
 # ── Convenience function ──────────────────────────────────────────────────────
+
 
 def count_tokens(text: str, model: str = "gpt-4o") -> int:
     """One-shot token count convenience function."""

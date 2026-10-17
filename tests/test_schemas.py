@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
-
 from src.api.schemas import (
     CoTRequest,
     CoTResponse,
@@ -21,8 +20,8 @@ from src.api.schemas import (
     VersionResponse,
 )
 
-
 # ── ResearchRequest ────────────────────────────────────────────────────────────
+
 
 class TestResearchRequest:
     def test_valid_request(self) -> None:
@@ -74,6 +73,7 @@ class TestResearchRequest:
 
 # ── CoTRequest ──────────────────────────────────────────────────────────────────
 
+
 class TestCoTRequest:
     def test_valid(self) -> None:
         r = CoTRequest(question="What is 2+2?")
@@ -100,6 +100,7 @@ class TestCoTRequest:
 
 # ── ToTRequest ───────────────────────────────────────────────────────────────
 
+
 class TestToTRequest:
     def test_valid(self) -> None:
         r = ToTRequest(problem="Solve the wolf-goat-cabbage puzzle.")
@@ -122,6 +123,7 @@ class TestToTRequest:
 
 # ── SearchRequest ────────────────────────────────────────────────────────────
 
+
 class TestSearchRequest:
     def test_valid(self) -> None:
         r = SearchRequest(query="fusion breakthroughs")
@@ -141,6 +143,7 @@ class TestSearchRequest:
 
 
 # ── ErrorResponse ──────────────────────────────────────────────────────────────
+
 
 class TestErrorResponse:
     def test_from_exception_captures_type(self) -> None:
@@ -168,6 +171,7 @@ class TestErrorResponse:
 
 # ── HealthResponse ────────────────────────────────────────────────────────────
 
+
 class TestHealthResponse:
     def test_status_must_be_known(self) -> None:
         h = HealthResponse(
@@ -184,6 +188,7 @@ class TestHealthResponse:
 
 # ── VersionResponse ────────────────────────────────────────────────────────────
 
+
 class TestVersionResponse:
     def test_fields(self) -> None:
         v = VersionResponse(
@@ -198,6 +203,7 @@ class TestVersionResponse:
 
 
 # ── CoTResponse ────────────────────────────────────────────────────────────────
+
 
 class TestCoTResponse:
     def test_confidence_default(self) -> None:

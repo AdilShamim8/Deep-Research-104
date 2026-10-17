@@ -9,20 +9,18 @@ handling, and graceful degradation when Redis is down.
 from __future__ import annotations
 
 import asyncio
-import time
 
 import pytest
-
 from src.utils.cache import (
+    TTL,
     LayeredCache,
     LRUCache,
-    TTL,
     make_cache_key,
     make_namespace_key,
 )
 
-
 # ── Key derivation ────────────────────────────────────────────────────────────
+
 
 class TestKeyDerivation:
     def test_make_cache_key_deterministic(self) -> None:
@@ -54,6 +52,7 @@ class TestKeyDerivation:
 
 # ── TTL presets ──────────────────────────────────────────────────────────────
 
+
 class TestTTLPresets:
     def test_short_is_60(self) -> None:
         assert TTL.SHORT == 60
@@ -72,6 +71,7 @@ class TestTTLPresets:
 
 
 # ── In-process LRU ───────────────────────────────────────────────────────────
+
 
 class TestLRUCache:
     @pytest.mark.asyncio
@@ -132,6 +132,7 @@ class TestLRUCache:
 
 # ── Layered cache with Redis disabled ──────────────────────────────────────────
 
+
 class TestLayeredCacheNoRedis:
     """Run with Redis explicitly disabled so we test the disk + LRU fallback."""
 
@@ -140,9 +141,11 @@ class TestLayeredCacheNoRedis:
         self.cache = LayeredCache(default_ttl=60, lru_capacity=8)
         # Stub out disk cache so we don't write to disk during tests
         self.cache._get_disk_cache = lambda: None  # type: ignore
+
         # Stub out Redis
         async def _no_redis() -> None:
             return None
+
         self.cache._get_redis = _no_redis  # type: ignore
 
     @pytest.mark.asyncio

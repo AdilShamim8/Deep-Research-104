@@ -29,10 +29,11 @@ import asyncio
 import time
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
+from config.settings import settings
 from loguru import logger
 from tenacity import (
     before_sleep_log,
@@ -42,21 +43,21 @@ from tenacity import (
     wait_exponential,
 )
 
-from config.settings import settings
 from src.utils.cache import TTL, cache, make_namespace_key
 
-
 # ── Data structures ───────────────────────────────────────────────────────────
+
 
 @dataclass
 class SearchResult:
     """Unified search result from any provider."""
+
     title: str
     url: str
     snippet: str
     position: int = 0
     provider: str = ""
-    published_date: Optional[str] = None
+    published_date: str | None = None
     domain: str = ""
     relevance_score: float = 0.0
 
@@ -72,13 +73,14 @@ class SearchResult:
 @dataclass
 class SearchResponse:
     """Response from a single search query."""
+
     query: str
     results: list[SearchResult] = field(default_factory=list)
     provider: str = ""
     total_results: int = 0
     search_time_ms: float = 0.0
     cached: bool = False
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
     def has_results(self) -> bool:
@@ -86,6 +88,7 @@ class SearchResponse:
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _is_safe_url(url: str) -> bool:
     """Reject file://, ftp://, and other non-http schemes from results."""
@@ -100,12 +103,11 @@ def _validate_query(query: str) -> None:
     if not query or not query.strip():
         raise ValueError("Search query cannot be empty")
     if len(query) > 2_000:
-        raise ValueError(
-            f"Search query too long ({len(query)} chars, max 2000)"
-        )
+        raise ValueError(f"Search query too long ({len(query)} chars, max 2000)")
 
 
 # ── Abstract provider ─────────────────────────────────────────────────────────
+
 
 class BaseSearchProvider(ABC):
     """Abstract base for all search providers.
@@ -123,7 +125,7 @@ class BaseSearchProvider(ABC):
         self.max_results = max_results
         self.timeout = timeout
         self.max_retries = max_retries
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._lock = asyncio.Lock()
         self._requests_made = 0
         self._requests_failed = 0
@@ -163,9 +165,7 @@ class BaseSearchProvider(ABC):
         self._requests_made += 1
 
         decorated = retry(
-            retry=retry_if_exception_type(
-                (aiohttp.ClientError, asyncio.TimeoutError)
-            ),
+            retry=retry_if_exception_type((aiohttp.ClientError, asyncio.TimeoutError)),
             wait=wait_exponential(multiplier=1, min=1, max=8),
             stop=stop_after_attempt(self.max_retries),
             before_sleep=before_sleep_log(logger, "WARNING"),
@@ -188,13 +188,11 @@ class BaseSearchProvider(ABC):
 
 def _user_agent() -> str:
     """Stable, identifiable User-Agent for outbound search requests."""
-    return (
-        "DeepResearch104/1.0 (+https://github.com/AdilShamim8/Deep-Research-104) "
-        "python/aiohttp"
-    )
+    return "DeepResearch104/1.0 (+https://github.com/AdilShamim8/Deep-Research-104) python/aiohttp"
 
 
 # ── DuckDuckGo ───────────────────────────────────────────────────────────────
+
 
 class DuckDuckGoProvider(BaseSearchProvider):
     """DuckDuckGo search via the duckduckgo-search library (free, no key)."""
@@ -207,6 +205,7 @@ class DuckDuckGoProvider(BaseSearchProvider):
     def is_available(self) -> bool:
         try:
             import duckduckgo_search  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -216,8 +215,7 @@ class DuckDuckGoProvider(BaseSearchProvider):
             from duckduckgo_search import AsyncDDGS
         except ImportError as e:
             raise RuntimeError(
-                "duckduckgo_search is not installed; install with "
-                "'pip install duckduckgo-search'"
+                "duckduckgo_search is not installed; install with 'pip install duckduckgo-search'"
             ) from e
 
         start = time.time()
@@ -233,14 +231,16 @@ class DuckDuckGoProvider(BaseSearchProvider):
             url = r.get("href") or ""
             if not _is_safe_url(url):
                 continue
-            results.append(SearchResult(
-                title=r.get("title", "") or "",
-                url=url,
-                snippet=r.get("body", "") or "",
-                position=i + 1,
-                provider=self.name,
-                published_date=r.get("published"),
-            ))
+            results.append(
+                SearchResult(
+                    title=r.get("title", "") or "",
+                    url=url,
+                    snippet=r.get("body", "") or "",
+                    position=i + 1,
+                    provider=self.name,
+                    published_date=r.get("published"),
+                )
+            )
 
         return SearchResponse(
             query=query,
@@ -252,6 +252,7 @@ class DuckDuckGoProvider(BaseSearchProvider):
 
 
 # ── SerpAPI ──────────────────────────────────────────────────────────────────
+
 
 class SerpAPIProvider(BaseSearchProvider):
     """Google results via SerpAPI. Requires SERPAPI_KEY."""
@@ -281,42 +282,46 @@ class SerpAPIProvider(BaseSearchProvider):
             data = await resp.json()
 
         results: list[SearchResult] = []
-        for i, r in enumerate(data.get("organic_results", [])[:self.max_results]):
+        for i, r in enumerate(data.get("organic_results", [])[: self.max_results]):
             url = r.get("link") or ""
             if not _is_safe_url(url):
                 continue
-            results.append(SearchResult(
-                title=r.get("title", "") or "",
-                url=url,
-                snippet=r.get("snippet", "") or "",
-                position=i + 1,
-                provider=self.name,
-                published_date=r.get("date"),
-            ))
+            results.append(
+                SearchResult(
+                    title=r.get("title", "") or "",
+                    url=url,
+                    snippet=r.get("snippet", "") or "",
+                    position=i + 1,
+                    provider=self.name,
+                    published_date=r.get("date"),
+                )
+            )
 
         # Knowledge graph as a top-pinned result
         kg = data.get("knowledge_graph", {})
         if kg and kg.get("description"):
-            results.insert(0, SearchResult(
-                title=kg.get("title", "Knowledge Graph"),
-                url=kg.get("source", {}).get("link", ""),
-                snippet=kg.get("description", ""),
-                position=0,
-                provider=f"{self.name}_kg",
-            ))
+            results.insert(
+                0,
+                SearchResult(
+                    title=kg.get("title", "Knowledge Graph"),
+                    url=kg.get("source", {}).get("link", ""),
+                    snippet=kg.get("description", ""),
+                    position=0,
+                    provider=f"{self.name}_kg",
+                ),
+            )
 
         return SearchResponse(
             query=query,
             results=results,
             provider=self.name,
-            total_results=data.get("search_information", {}).get(
-                "total_results", len(results)
-            ),
+            total_results=data.get("search_information", {}).get("total_results", len(results)),
             search_time_ms=(time.time() - start) * 1000,
         )
 
 
 # ── Brave Search ─────────────────────────────────────────────────────────────
+
 
 class BraveSearchProvider(BaseSearchProvider):
     """Brave Search API (privacy-focused, independent index)."""
@@ -346,26 +351,26 @@ class BraveSearchProvider(BaseSearchProvider):
             "text_decorations": False,
         }
         session = await self._get_session()
-        async with session.get(
-            self.BASE_URL, params=params, headers=headers
-        ) as resp:
+        async with session.get(self.BASE_URL, params=params, headers=headers) as resp:
             resp.raise_for_status()
             data = await resp.json()
 
         web_results = data.get("web", {}).get("results", [])
         results: list[SearchResult] = []
-        for i, r in enumerate(web_results[:self.max_results]):
+        for i, r in enumerate(web_results[: self.max_results]):
             url = r.get("url") or ""
             if not _is_safe_url(url):
                 continue
-            results.append(SearchResult(
-                title=r.get("title", "") or "",
-                url=url,
-                snippet=r.get("description", "") or "",
-                position=i + 1,
-                provider=self.name,
-                published_date=r.get("age"),
-            ))
+            results.append(
+                SearchResult(
+                    title=r.get("title", "") or "",
+                    url=url,
+                    snippet=r.get("description", "") or "",
+                    position=i + 1,
+                    provider=self.name,
+                    published_date=r.get("age"),
+                )
+            )
 
         return SearchResponse(
             query=query,
@@ -377,6 +382,7 @@ class BraveSearchProvider(BaseSearchProvider):
 
 
 # ── Bing Search ──────────────────────────────────────────────────────────────
+
 
 class BingSearchProvider(BaseSearchProvider):
     """Microsoft Bing Search API. Requires BING_SEARCH_API_KEY."""
@@ -403,39 +409,38 @@ class BingSearchProvider(BaseSearchProvider):
             "responseFilter": "Webpages",
         }
         session = await self._get_session()
-        async with session.get(
-            self.BASE_URL, params=params, headers=headers
-        ) as resp:
+        async with session.get(self.BASE_URL, params=params, headers=headers) as resp:
             resp.raise_for_status()
             data = await resp.json()
 
         web_pages = data.get("webPages", {}).get("value", [])
         results: list[SearchResult] = []
-        for i, r in enumerate(web_pages[:self.max_results]):
+        for i, r in enumerate(web_pages[: self.max_results]):
             url = r.get("url") or ""
             if not _is_safe_url(url):
                 continue
-            results.append(SearchResult(
-                title=r.get("name", "") or "",
-                url=url,
-                snippet=r.get("snippet", "") or "",
-                position=i + 1,
-                provider=self.name,
-                published_date=r.get("dateLastCrawled"),
-            ))
+            results.append(
+                SearchResult(
+                    title=r.get("name", "") or "",
+                    url=url,
+                    snippet=r.get("snippet", "") or "",
+                    position=i + 1,
+                    provider=self.name,
+                    published_date=r.get("dateLastCrawled"),
+                )
+            )
 
         return SearchResponse(
             query=query,
             results=results,
             provider=self.name,
-            total_results=data.get("webPages", {}).get(
-                "totalEstimatedMatches", len(results)
-            ),
+            total_results=data.get("webPages", {}).get("totalEstimatedMatches", len(results)),
             search_time_ms=(time.time() - start) * 1000,
         )
 
 
 # ── Fallback search engine ────────────────────────────────────────────────────
+
 
 class FallbackSearchEngine:
     """Multi-provider search with automatic fallback + caching.
@@ -456,10 +461,7 @@ class FallbackSearchEngine:
             BingSearchProvider(max_results=settings.search.max_search_results),
         ]
         self._ordered = self._build_provider_order()
-        logger.info(
-            f"Search engine initialized. Provider order: "
-            f"{[p.name for p in self._ordered]}"
-        )
+        logger.info(f"Search engine initialized. Provider order: {[p.name for p in self._ordered]}")
 
     def _build_provider_order(self) -> list[BaseSearchProvider]:
         """Order: configured primary first, then available providers,
@@ -515,7 +517,7 @@ class FallbackSearchEngine:
                     cached=True,
                 )
 
-        last_error: Optional[str] = None
+        last_error: str | None = None
         for provider in self._ordered:
             try:
                 logger.info(f"Searching [{provider.name}]: {query[:80]}")
@@ -535,8 +537,7 @@ class FallbackSearchEngine:
                     return response
                 last_error = response.error or "no results"
                 logger.warning(
-                    f"Provider {provider.name} returned no results "
-                    f"({last_error}); trying next"
+                    f"Provider {provider.name} returned no results ({last_error}); trying next"
                 )
             except Exception as e:
                 last_error = str(e)

@@ -12,7 +12,6 @@ import asyncio
 import time
 
 import pytest
-
 from src.utils.rate_limiter import (
     DEFAULT_LIMITS,
     InProcessRateLimiter,
@@ -20,8 +19,8 @@ from src.utils.rate_limiter import (
     _get_limits,
 )
 
-
 # ── Limit lookup ──────────────────────────────────────────────────────────────
+
 
 class TestLimitLookup:
     def test_exact_match(self) -> None:
@@ -45,6 +44,7 @@ class TestLimitLookup:
 
 # ── Limit dataclass ──────────────────────────────────────────────────────────
 
+
 class TestLimitDataclass:
     def test_immutable(self) -> None:
         with pytest.raises(Exception):
@@ -57,6 +57,7 @@ class TestLimitDataclass:
 
 
 # ── Acquire / metrics ────────────────────────────────────────────────────────
+
 
 class TestAcquire:
     @pytest.mark.asyncio
@@ -93,13 +94,14 @@ class TestAcquire:
         limiter = InProcessRateLimiter()
         # Override the limits for a test model to be very low
         from src.utils import rate_limiter as rl
+
         rl.DEFAULT_LIMITS["__test_low__"] = Limit(rpm=1, tpm=1_000_000, burst=1)
 
         # First acquire is instant (burst)
         await limiter.acquire("__test_low__", estimated_tokens=1, timeout=2.0)
         # Second acquire should wait (RPM=1, burst=1)
         # We use a short timeout to fail fast if it's not waiting
-        start = time.time()
+        time.time()
         # This would actually wait 60 seconds — too long for a unit test.
         # Instead, just verify the metric is recorded after first acquire.
         metrics = limiter.metrics()
@@ -110,6 +112,7 @@ class TestAcquire:
 
 
 # ── Multiple providers don't interfere ───────────────────────────────────────
+
 
 class TestPerModelIsolation:
     @pytest.mark.asyncio

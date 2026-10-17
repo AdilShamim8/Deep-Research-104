@@ -8,10 +8,7 @@ ReasoningConfig, SecurityConfig).
 
 from __future__ import annotations
 
-import os
-
 import pytest
-
 from config.settings import (
     AppSettings,
     ModelConfig,
@@ -20,8 +17,8 @@ from config.settings import (
     SecurityConfig,
 )
 
-
 # ── Default values ────────────────────────────────────────────────────────────
+
 
 class TestDefaults:
     def test_app_env_default_is_development(self) -> None:
@@ -51,6 +48,7 @@ class TestDefaults:
 
 # ── Env-var driven ────────────────────────────────────────────────────────────
 
+
 class TestEnvDriven:
     def test_app_env_lowercased(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("APP_ENV", "PRODUCTION")
@@ -75,6 +73,7 @@ class TestEnvDriven:
 
 # ── Convenience flags ─────────────────────────────────────────────────────────
 
+
 class TestFlags:
     def test_is_development_true_in_dev(self) -> None:
         s = AppSettings()
@@ -97,6 +96,7 @@ class TestFlags:
 
 
 # ── Validators ──────────────────────────────────────────────────────────────────
+
 
 class TestModelConfigValidation:
     def test_openai_timeout_must_be_positive(self) -> None:
@@ -146,9 +146,7 @@ class TestSecurityConfig:
             SecurityConfig(rate_limit_rpm=0)
 
     def test_allowed_origins_parsed_as_list(self) -> None:
-        c = SecurityConfig(
-            allowed_origins="https://a.com, https://b.com,https://c.com"
-        )
+        c = SecurityConfig(allowed_origins="https://a.com, https://b.com,https://c.com")
         assert c.allowed_origins_list == ["https://a.com", "https://b.com", "https://c.com"]
 
     def test_allowed_origins_strips_whitespace(self) -> None:
@@ -157,6 +155,7 @@ class TestSecurityConfig:
 
 
 # ── Nested config caching ───────────────────────────────────────────────────────
+
 
 class TestNestedConfig:
     def test_models_property_returns_model_config(self) -> None:

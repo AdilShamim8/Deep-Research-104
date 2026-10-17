@@ -1,9 +1,9 @@
 """Tests for reasoning modules."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
-from src.models.base_model import ModelResponse, GenerationConfig
+import pytest
+from src.models.base_model import ModelResponse
 
 
 def make_mock_model(response_text: str, reasoning: str = "") -> MagicMock:
@@ -26,14 +26,10 @@ def make_mock_model(response_text: str, reasoning: str = "") -> MagicMock:
 
 @pytest.mark.asyncio
 class TestChainOfThought:
-
     async def test_zero_shot_generate(self):
         from src.reasoning.chain_of_thought import ChainOfThought
 
-        model = make_mock_model(
-            "<reasoning>Step 1: Think.</reasoning>"
-            "<answer>42</answer>"
-        )
+        model = make_mock_model("<reasoning>Step 1: Think.</reasoning><answer>42</answer>")
         cot = ChainOfThought(model)
         result = await cot.generate("What is 6x7?", mode="zero_shot")
 
@@ -96,19 +92,16 @@ class TestChainOfThought:
 
         model = make_mock_model(
             response_text="The answer is 42",
-            reasoning=("I need to multiply 6 by 7. "
-                        "6 times 7 equals 42."),
+            reasoning=("I need to multiply 6 by 7. 6 times 7 equals 42."),
         )
         cot = ChainOfThought(model)
         result = await cot.generate("6 x 7?")
 
-        assert result.reasoning == ("I need to multiply 6 by 7. "
-                                    "6 times 7 equals 42.")
+        assert result.reasoning == ("I need to multiply 6 by 7. 6 times 7 equals 42.")
 
 
 @pytest.mark.asyncio
 class TestParallelSampler:
-
     async def test_sample_best_of_n(self):
         from src.reasoning.parallel_sampling import ParallelSampler
 
@@ -165,7 +158,6 @@ class TestParallelSampler:
 
 @pytest.mark.asyncio
 class TestTreeOfThoughts:
-
     async def test_parse_thoughts(self):
         from src.reasoning.tree_of_thoughts import TreeOfThoughts
 
@@ -179,9 +171,7 @@ class TestTreeOfThoughts:
         assert "analyze" in thoughts[0]
 
     async def test_solve_mock(self):
-        from src.reasoning.tree_of_thoughts import (
-            TreeOfThoughts, SearchStrategy
-        )
+        from src.reasoning.tree_of_thoughts import SearchStrategy, TreeOfThoughts
 
         call_num = [0]
 
@@ -192,9 +182,7 @@ class TestTreeOfThoughts:
             if "NEXT STEPS" in content or "Generate" in content:
                 return ModelResponse(
                     content=(
-                        "STEP: Analyze the numbers.\n"
-                        "STEP: Apply arithmetic.\n"
-                        "STEP: Verify result."
+                        "STEP: Analyze the numbers.\nSTEP: Apply arithmetic.\nSTEP: Verify result."
                     ),
                     model="mock",
                     total_tokens=50,
@@ -238,13 +226,10 @@ class TestTreeOfThoughts:
 
 @pytest.mark.asyncio
 class TestVerifier:
-
     async def test_orm_parse_response(self):
         from src.reasoning.verifier import OutcomeRewardModel
 
-        model = make_mock_model(
-            "SCORE: 0.9\nCORRECT: YES\nFEEDBACK: Excellent answer."
-        )
+        model = make_mock_model("SCORE: 0.9\nCORRECT: YES\nFEEDBACK: Excellent answer.")
         orm = OutcomeRewardModel(model)
         result = await orm.verify(
             question="What is 2+2?",

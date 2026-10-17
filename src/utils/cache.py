@@ -18,18 +18,17 @@ Date tag: 17 October 2026.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 from collections import OrderedDict
-from datetime import timedelta
-from typing import Any, Optional
-
-from loguru import logger
+from typing import Any
 
 from config.settings import settings
-
+from loguru import logger
 
 # ── In-process LRU ────────────────────────────────────────────────────────────
+
 
 class LRUCache:
     """Tiny thread-safe LRU cache for the hottest keys.
@@ -44,22 +43,24 @@ class LRUCache:
         self._store: OrderedDict[str, tuple[Any, float]] = OrderedDict()
         self._lock = asyncio.Lock()
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         async with self._lock:
             entry = self._store.get(key)
             if entry is None:
                 return None
             value, expires_at = entry
             import time as _time
+
             if expires_at and _time.time() > expires_at:
                 self._store.pop(key, None)
                 return None
             self._store.move_to_end(key)
             return value
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         async with self._lock:
             import time as _time
+
             expires_at = _time.time() + ttl if ttl else 0.0
             self._store[key] = (value, expires_at)
             self._store.move_to_end(key)
@@ -76,6 +77,7 @@ class LRUCache:
 
 
 # ── Cache key derivation ──────────────────────────────────────────────────────
+
 
 def make_cache_key(*args: Any, **kwargs: Any) -> str:
     """Create a deterministic SHA-256 cache key from arbitrary args."""
@@ -94,6 +96,7 @@ def make_namespace_key(namespace: str, *args: Any, **kwargs: Any) -> str:
 
 
 # ── Metrics counters ─────────────────────────────────────────────────────────
+
 
 class CacheMetrics:
     """Lightweight hit/miss counters for Prometheus scraping.
@@ -133,6 +136,7 @@ class CacheMetrics:
 
 # ── Layered cache ─────────────────────────────────────────────────────────────
 
+
 class LayeredCache:
     """
     Three-layer cache:
@@ -148,13 +152,13 @@ class LayeredCache:
     def __init__(
         self,
         disk_cache_dir: str = ".cache",
-        redis_url: Optional[str] = None,
+        redis_url: str | None = None,
         default_ttl: int = 3_600,
         lru_capacity: int = 256,
     ) -> None:
         self.default_ttl = default_ttl
         self._redis_url = redis_url or settings.redis_url
-        self._redis: Optional[Any] = None  # redis.asyncio.Redis
+        self._redis: Any | None = None  # redis.asyncio.Redis
         self._redis_checked = False
         self._disk_cache = None  # lazy init
         self._disk_cache_dir = disk_cache_dir
@@ -166,15 +170,17 @@ class LayeredCache:
     def _get_disk_cache(self) -> Any:
         if self._disk_cache is None:
             try:
-                import diskcache
                 import os
+
+                import diskcache
+
                 os.makedirs(self._disk_cache_dir, exist_ok=True)
                 self._disk_cache = diskcache.Cache(self._disk_cache_dir)
             except Exception as e:
                 logger.warning(f"Disk cache unavailable: {e}")
         return self._disk_cache
 
-    async def _get_redis(self) -> Optional[Any]:
+    async def _get_redis(self) -> Any | None:
         """Lazy Redis connection with graceful fallback."""
         if self._redis is not None:
             return self._redis
@@ -184,6 +190,7 @@ class LayeredCache:
         try:
             # Prefer redis.asyncio (aioredis is deprecated)
             import redis.asyncio as aioredis
+
             self._redis = aioredis.from_url(
                 self._redis_url,
                 encoding="utf-8",
@@ -202,7 +209,7 @@ class LayeredCache:
 
     # ── Public API ───────────────────────────────────────────────────────
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get from cache, cascading L1 -> L2 -> L3."""
         # L1: in-process LRU
         try:
@@ -257,7 +264,7 @@ class LayeredCache:
         self,
         key: str,
         value: Any,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         """Set in all available layers."""
         ttl = ttl or self.default_ttl
@@ -292,16 +299,12 @@ class LayeredCache:
         await self._lru.delete(key)
         disk = self._get_disk_cache()
         if disk is not None:
-            try:
+            with contextlib.suppress(Exception):
                 disk.delete(key)
-            except Exception:
-                pass
         redis = await self._get_redis()
         if redis is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await redis.delete(key)
-            except Exception:
-                pass
 
     async def clear_pattern(self, pattern: str) -> int:
         """Delete all keys matching a glob pattern (e.g. 'search:*').
@@ -332,7 +335,7 @@ class LayeredCache:
     async def set_many(
         self,
         items: dict[str, Any],
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         """Bulk set with the same TTL."""
         for key, value in items.items():
@@ -343,31 +346,29 @@ class LayeredCache:
     async def close(self) -> None:
         """Release all resources. Idempotent."""
         if self._redis is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._redis.aclose()
-            except Exception:
-                pass
             self._redis = None
         if self._disk_cache is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._disk_cache.close()
-            except Exception:
-                pass
             self._disk_cache = None
         await self._lru.clear()
 
 
 # ── TTL presets ──────────────────────────────────────────────────────────────
 
+
 class TTL:
     """Common TTL presets in seconds."""
-    SHORT = 60                           # 1 minute
-    MEDIUM = 3_600                       # 1 hour
-    LONG = 86_400                        # 1 day
-    WEEK = 604_800                       # 7 days
-    SEARCH_RESULTS = 3_600               # search results change hourly
-    LLM_RESPONSE = 86_400                # LLM completions are deterministic enough
-    EMBEDDINGS = 604_800                 # embeddings rarely change
+
+    SHORT = 60  # 1 minute
+    MEDIUM = 3_600  # 1 hour
+    LONG = 86_400  # 1 day
+    WEEK = 604_800  # 7 days
+    SEARCH_RESULTS = 3_600  # search results change hourly
+    LLM_RESPONSE = 86_400  # LLM completions are deterministic enough
+    EMBEDDINGS = 604_800  # embeddings rarely change
     HEALTH_CHECK = 30
 
 

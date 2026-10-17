@@ -22,8 +22,10 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Any, AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
+from config.settings import settings
 from loguru import logger
 from openai import (
     APIConnectionError,
@@ -41,7 +43,6 @@ from tenacity import (
     wait_exponential,
 )
 
-from config.settings import settings
 from src.models.base_model import (
     BaseModel,
     GenerationConfig,
@@ -51,12 +52,9 @@ from src.models.base_model import (
 from src.utils.rate_limiter import rate_limiter
 from src.utils.token_counter import MODEL_CONTEXT_LIMITS, TokenCounter
 
-
 # ── Model matrix ──────────────────────────────────────────────────────────────
 
-DEEPSEEK_REASONING_MODELS: frozenset[str] = frozenset(
-    {"deepseek-reasoner", "deepseek-r1"}
-)
+DEEPSEEK_REASONING_MODELS: frozenset[str] = frozenset({"deepseek-reasoner", "deepseek-r1"})
 
 # DeepSeek-R1 recommends temperature 0.5-0.7 (0.6 is the documented default).
 DEEPSEEK_R1_DEFAULT_TEMP = 0.6
@@ -70,7 +68,7 @@ _THINK_PATTERN = re.compile(
 )
 
 
-def parse_reasoning_response(content: str) -> tuple[str, Optional[str]]:
+def parse_reasoning_response(content: str) -> tuple[str, str | None]:
     """Parse `<think>...</think>` blocks out of a DeepSeek-R1 response.
 
     Returns (clean_answer, reasoning_trace). reasoning_trace is None
@@ -105,6 +103,7 @@ def _build_retry_decorator(max_attempts: int) -> Any:
 
 # ── Provider ──────────────────────────────────────────────────────────────────
 
+
 class DeepSeekModel(BaseModel):
     """DeepSeek API client (OpenAI-compatible). Supports R1 reasoning + chat."""
 
@@ -112,17 +111,15 @@ class DeepSeekModel(BaseModel):
         self,
         model_name: str = "deepseek-reasoner",
         *,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        timeout: Optional[float] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        timeout: float | None = None,
     ) -> None:
         super().__init__(model_name)
 
         self._api_key = api_key or settings.models.deepseek_api_key
         if not self._api_key and settings.is_production:
-            raise RuntimeError(
-                "DEEPSEEK_API_KEY is required in production but not set."
-            )
+            raise RuntimeError("DEEPSEEK_API_KEY is required in production but not set.")
 
         self._client = AsyncOpenAI(
             api_key=self._api_key,
@@ -132,9 +129,7 @@ class DeepSeekModel(BaseModel):
         )
 
         self._token_counter = TokenCounter(model_name)
-        self._is_reasoning = any(
-            model_name.startswith(m) for m in DEEPSEEK_REASONING_MODELS
-        )
+        self._is_reasoning = any(model_name.startswith(m) for m in DEEPSEEK_REASONING_MODELS)
         self._max_retries = settings.models.deepseek_max_retries
 
         # DeepSeek advertises: streaming, reasoning (R1 only), system prompt
@@ -187,8 +182,9 @@ class DeepSeekModel(BaseModel):
             "model": self.model_name,
             "messages": messages,
             "max_tokens": config.max_tokens,
-            "temperature": config.temperature if not self._is_reasoning
-                          else DEEPSEEK_R1_DEFAULT_TEMP,
+            "temperature": (
+                config.temperature if not self._is_reasoning else DEEPSEEK_R1_DEFAULT_TEMP
+            ),
             "top_p": config.top_p,
         }
         if config.stop_sequences:
@@ -207,7 +203,7 @@ class DeepSeekModel(BaseModel):
     async def generate(
         self,
         messages: list[dict],
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> ModelResponse:
         """Generate a DeepSeek completion with retries + accounting."""
         if config is None:
@@ -218,9 +214,7 @@ class DeepSeekModel(BaseModel):
 
         self.validate_messages(messages, config.max_tokens)
 
-        estimated_tokens = (
-            self._token_counter.count_messages_tokens(messages) + config.max_tokens
-        )
+        estimated_tokens = self._token_counter.count_messages_tokens(messages) + config.max_tokens
         await rate_limiter.acquire(self.model_name, estimated_tokens=estimated_tokens)
 
         params = self._build_request_params(messages, config)
@@ -238,10 +232,7 @@ class DeepSeekModel(BaseModel):
             return await self._client.chat.completions.create(**params)
         except RateLimitError as e:
             retry_after = e.response.headers.get("retry-after", "?")
-            logger.warning(
-                f"DeepSeek rate limit on {self.model_name}: "
-                f"retry-after={retry_after}s"
-            )
+            logger.warning(f"DeepSeek rate limit on {self.model_name}: retry-after={retry_after}s")
             raise
         except APIError as e:
             logger.error(f"DeepSeek API error on {self.model_name}: {e}")
@@ -301,7 +292,7 @@ class DeepSeekModel(BaseModel):
     async def stream_generate(
         self,
         messages: list[dict],
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream DeepSeek answer tokens, filtering `<think>` blocks.
 
@@ -340,7 +331,7 @@ class DeepSeekModel(BaseModel):
                         if in_think_block:
                             end_idx = buffer.find("</think>")
                             if end_idx != -1:
-                                buffer = buffer[end_idx + len("</think>"):]
+                                buffer = buffer[end_idx + len("</think>") :]
                                 in_think_block = False
                                 continue
                             buffer = ""
@@ -350,7 +341,7 @@ class DeepSeekModel(BaseModel):
                             if start_idx != -1:
                                 if start_idx > 0:
                                     yield buffer[:start_idx]
-                                buffer = buffer[start_idx + len("<think>"):]
+                                buffer = buffer[start_idx + len("<think>") :]
                                 in_think_block = True
                                 continue
                             # No <think> tag yet; hold last 7 chars in case

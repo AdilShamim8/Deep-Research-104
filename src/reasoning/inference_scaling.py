@@ -19,18 +19,17 @@ Reference:
 Date tag: 17 October 2026.
 """
 
-import asyncio
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+
 from loguru import logger
 
-from src.models.base_model import BaseModel, GenerationConfig, ModelResponse
+from src.models.base_model import BaseModel, GenerationConfig
+from src.reasoning.chain_of_thought import ChainOfThought
 from src.reasoning.parallel_sampling import ParallelSampler
 from src.reasoning.sequential_sampling import SequentialSampler
-from src.reasoning.chain_of_thought import ChainOfThought
-from src.reasoning.tree_of_thoughts import TreeOfThoughts, SearchStrategy
+from src.reasoning.tree_of_thoughts import SearchStrategy, TreeOfThoughts
 from src.reasoning.verifier import BaseVerifier, OutcomeRewardModel
 
 
@@ -44,9 +43,10 @@ class ScalingStrategy(Enum):
     REVISION:  More self-refinement iterations
     ADAPTIVE:  Auto-select best strategy per budget
     """
-    SAMPLES  = "samples"
-    STEPS    = "steps"
-    SEARCH   = "search"
+
+    SAMPLES = "samples"
+    STEPS = "steps"
+    SEARCH = "search"
     REVISION = "revision"
     ADAPTIVE = "adaptive"
 
@@ -62,6 +62,7 @@ class ScalingBudget:
     max_steps:       Hard cap on sequential steps.
     max_depth:       Hard cap on tree depth.
     """
+
     token_budget: int = 16_000
     time_budget_s: float = 60.0
     max_samples: int = 8
@@ -74,9 +75,9 @@ class ScalingBudget:
         Difficulty: "easy" | "medium" | "hard" | "very_hard"
         """
         multipliers = {
-            "easy":      0.25,
-            "medium":    0.5,
-            "hard":      1.0,
+            "easy": 0.25,
+            "medium": 0.5,
+            "hard": 1.0,
             "very_hard": 2.0,
         }
         m = multipliers.get(difficulty, 1.0)
@@ -95,8 +96,9 @@ class ScalingResult:
     Result from inference-time scaling.
     Records what strategy was used and how much was spent.
     """
+
     answer: str
-    reasoning: Optional[str]
+    reasoning: str | None
     strategy_used: str
     tokens_spent: int
     time_spent_s: float
@@ -108,7 +110,7 @@ class ScalingResult:
     def tokens_per_quality_point(self) -> float:
         """Efficiency metric: tokens spent per unit of quality."""
         if self.quality_score <= 0:
-            return float('inf')
+            return float("inf")
         return self.tokens_spent / self.quality_score
 
 
@@ -131,25 +133,25 @@ class InferenceTimeScaler:
     def __init__(
         self,
         model: BaseModel,
-        verifier: Optional[BaseVerifier] = None,
+        verifier: BaseVerifier | None = None,
     ):
         self.model = model
         self.verifier = verifier or OutcomeRewardModel(model)
 
         # Sub-engines
-        self._parallel  = ParallelSampler(model)
+        self._parallel = ParallelSampler(model)
         self._sequential = SequentialSampler(model)
-        self._cot        = ChainOfThought(model)
+        self._cot = ChainOfThought(model)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
     async def scale(
         self,
         question: str,
-        context: Optional[str] = None,
-        budget: Optional[ScalingBudget] = None,
+        context: str | None = None,
+        budget: ScalingBudget | None = None,
         strategy: ScalingStrategy = ScalingStrategy.ADAPTIVE,
-        reference_answer: Optional[str] = None,
+        reference_answer: str | None = None,
     ) -> ScalingResult:
         """
         Scale inference compute for a question.
@@ -165,7 +167,7 @@ class InferenceTimeScaler:
             ScalingResult with best answer and spend statistics.
         """
         budget = budget or ScalingBudget()
-        start  = time.time()
+        start = time.time()
 
         logger.info(
             f"Inference scaling | strategy={strategy.value} | "
@@ -178,21 +180,13 @@ class InferenceTimeScaler:
             logger.info(f"Adaptive strategy selected: {strategy.value}")
 
         if strategy == ScalingStrategy.SAMPLES:
-            result = await self._scale_by_samples(
-                question, context, budget, reference_answer
-            )
+            result = await self._scale_by_samples(question, context, budget, reference_answer)
         elif strategy == ScalingStrategy.STEPS:
-            result = await self._scale_by_steps(
-                question, context, budget
-            )
+            result = await self._scale_by_steps(question, context, budget)
         elif strategy == ScalingStrategy.SEARCH:
-            result = await self._scale_by_search(
-                question, context, budget
-            )
+            result = await self._scale_by_search(question, context, budget)
         elif strategy == ScalingStrategy.REVISION:
-            result = await self._scale_by_revision(
-                question, context, budget
-            )
+            result = await self._scale_by_revision(question, context, budget)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -209,10 +203,10 @@ class InferenceTimeScaler:
     async def compute_scaling_curve(
         self,
         question: str,
-        context: Optional[str] = None,
-        token_budgets: Optional[list[int]] = None,
+        context: str | None = None,
+        token_budgets: list[int] | None = None,
         strategy: ScalingStrategy = ScalingStrategy.SAMPLES,
-        reference_answer: Optional[str] = None,
+        reference_answer: str | None = None,
     ) -> list[ScalingResult]:
         """
         Compute scaling curve: quality vs. compute budget.
@@ -222,14 +216,10 @@ class InferenceTimeScaler:
 
         Returns results sorted by token_budget ascending.
         """
-        token_budgets = token_budgets or [
-            1_000, 2_000, 4_000, 8_000, 16_000, 32_000
-        ]
+        token_budgets = token_budgets or [1_000, 2_000, 4_000, 8_000, 16_000, 32_000]
 
         logger.info(
-            f"Computing scaling curve | "
-            f"n_points={len(token_budgets)} | "
-            f"strategy={strategy.value}"
+            f"Computing scaling curve | n_points={len(token_budgets)} | strategy={strategy.value}"
         )
 
         results = []
@@ -261,9 +251,9 @@ class InferenceTimeScaler:
     async def _scale_by_samples(
         self,
         question: str,
-        context: Optional[str],
+        context: str | None,
         budget: ScalingBudget,
-        reference_answer: Optional[str],
+        reference_answer: str | None,
     ) -> ScalingResult:
         """
         Scaling strategy 1: More parallel samples.
@@ -323,7 +313,7 @@ class InferenceTimeScaler:
     async def _scale_by_steps(
         self,
         question: str,
-        context: Optional[str],
+        context: str | None,
         budget: ScalingBudget,
     ) -> ScalingResult:
         """
@@ -359,9 +349,7 @@ class InferenceTimeScaler:
 
         return ScalingResult(
             answer=result.final_answer,
-            reasoning="\n\n".join(
-                s.critique or "" for s in result.steps
-            ),
+            reasoning="\n\n".join(s.critique or "" for s in result.steps),
             strategy_used="steps",
             tokens_spent=result.total_tokens,
             time_spent_s=0.0,
@@ -376,7 +364,7 @@ class InferenceTimeScaler:
     async def _scale_by_search(
         self,
         question: str,
-        context: Optional[str],
+        context: str | None,
         budget: ScalingBudget,
     ) -> ScalingResult:
         """
@@ -386,20 +374,11 @@ class InferenceTimeScaler:
         Quality improves by exploring more reasoning paths.
         """
         # Scale tree parameters with budget
-        branching = min(
-            3,
-            max(2, budget.token_budget // 4000)
-        )
-        depth = min(
-            budget.max_depth,
-            max(2, budget.token_budget // 3000)
-        )
+        branching = min(3, max(2, budget.token_budget // 4000))
+        depth = min(budget.max_depth, max(2, budget.token_budget // 3000))
         beam_w = min(3, max(1, budget.token_budget // 6000))
 
-        logger.debug(
-            f"Scaling by search: "
-            f"branching={branching} depth={depth} beam={beam_w}"
-        )
+        logger.debug(f"Scaling by search: branching={branching} depth={depth} beam={beam_w}")
 
         tot = TreeOfThoughts(
             model=self.model,
@@ -427,16 +406,13 @@ class InferenceTimeScaler:
 
         # Estimate tokens spent
         tokens_spent = (
-            result.total_nodes_explored
-            * config.max_tokens
-            * 2  # Account for scoring calls
+            result.total_nodes_explored * config.max_tokens * 2  # Account for scoring calls
         )
 
         return ScalingResult(
             answer=result.answer,
             reasoning="\n\n".join(
-                f"Step {i+1}: {n.thought}"
-                for i, n in enumerate(result.best_path)
+                f"Step {i + 1}: {n.thought}" for i, n in enumerate(result.best_path)
             ),
             strategy_used="search",
             tokens_spent=min(tokens_spent, budget.token_budget),
@@ -455,7 +431,7 @@ class InferenceTimeScaler:
     async def _scale_by_revision(
         self,
         question: str,
-        context: Optional[str],
+        context: str | None,
         budget: ScalingBudget,
     ) -> ScalingResult:
         """
@@ -464,8 +440,8 @@ class InferenceTimeScaler:
         Iterative self-refinement with increasing depth.
         """
         from src.training.self_refinement import (
-            SelfRefinementEngine,
             SelfRefinementConfig,
+            SelfRefinementEngine,
         )
 
         n_revisions = min(
@@ -493,10 +469,7 @@ class InferenceTimeScaler:
 
         return ScalingResult(
             answer=trace.final_answer,
-            reasoning="\n\n".join(
-                f"Draft {i}: {d[:200]}..."
-                for i, d in enumerate(trace.drafts)
-            ),
+            reasoning="\n\n".join(f"Draft {i}: {d[:200]}..." for i, d in enumerate(trace.drafts)),
             strategy_used="revision",
             tokens_spent=trace.total_tokens,
             time_spent_s=0.0,
@@ -506,9 +479,7 @@ class InferenceTimeScaler:
                 "n_revisions": trace.n_refinements,
                 "converged": trace.converged,
                 "score_improvement": trace.improvement,
-                "final_score": (
-                    trace.scores[-1] if trace.scores else 0
-                ),
+                "final_score": (trace.scores[-1] if trace.scores else 0),
             },
         )
 
@@ -537,17 +508,33 @@ class InferenceTimeScaler:
 
         # Keyword heuristics
         math_keywords = {
-            "prove", "solve", "calculate", "compute",
-            "derive", "equation", "formula", "theorem",
-            "step", "algorithm",
+            "prove",
+            "solve",
+            "calculate",
+            "compute",
+            "derive",
+            "equation",
+            "formula",
+            "theorem",
+            "step",
+            "algorithm",
         }
         explanation_keywords = {
-            "explain", "why", "how does", "describe",
-            "what is", "summarize", "elaborate",
+            "explain",
+            "why",
+            "how does",
+            "describe",
+            "what is",
+            "summarize",
+            "elaborate",
         }
         creative_keywords = {
-            "write", "create", "generate", "design",
-            "compose", "draft",
+            "write",
+            "create",
+            "generate",
+            "design",
+            "compose",
+            "draft",
         }
 
         words = set(q_lower.split())
@@ -571,7 +558,7 @@ class InferenceTimeScaler:
     def _build_messages(
         self,
         question: str,
-        context: Optional[str],
+        context: str | None,
     ) -> list[dict]:
         content = ""
         if context:

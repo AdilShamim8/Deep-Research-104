@@ -17,7 +17,7 @@ Date tag: 17 October 2026.
 import asyncio
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+
 from loguru import logger
 
 from src.models.base_model import BaseModel, GenerationConfig
@@ -26,6 +26,7 @@ from src.models.base_model import BaseModel, GenerationConfig
 @dataclass
 class SelfRefinementConfig:
     """Configuration for self-refinement."""
+
     max_refinements: int = 3
     min_improvement_threshold: float = 0.1
     generation_temperature: float = 0.7
@@ -39,6 +40,7 @@ class SelfRefinementConfig:
 @dataclass
 class RefinementTrace:
     """Full trace of self-refinement process."""
+
     question: str
     drafts: list[str] = field(default_factory=list)
     critiques: list[str] = field(default_factory=list)
@@ -125,7 +127,7 @@ class SelfRefinementEngine:
     def __init__(
         self,
         model: BaseModel,
-        config: Optional[SelfRefinementConfig] = None,
+        config: SelfRefinementConfig | None = None,
     ):
         self.model = model
         self.config = config or SelfRefinementConfig()
@@ -133,8 +135,8 @@ class SelfRefinementEngine:
     async def refine(
         self,
         question: str,
-        initial_response: Optional[str] = None,
-        context: Optional[str] = None,
+        initial_response: str | None = None,
+        context: str | None = None,
     ) -> RefinementTrace:
         """
         Run self-refinement loop.
@@ -176,16 +178,14 @@ class SelfRefinementEngine:
         # Refinement loop
         for step in range(self.config.max_refinements):
             # Step 2: Self-critique
-            critique_result = await self._self_critique(
-                question, current_response
-            )
+            critique_result = await self._self_critique(question, current_response)
             total_tokens += critique_result["tokens"]
 
             trace.critiques.append(critique_result["critique"])
             trace.scores.append(critique_result["score"])
 
             logger.debug(
-                f"Refinement step {step+1} | "
+                f"Refinement step {step + 1} | "
                 f"score={critique_result['score']:.2f} | "
                 f"satisfied={critique_result['satisfied']}"
             )
@@ -197,7 +197,7 @@ class SelfRefinementEngine:
                 and critique_result["score"] >= 0.8
             ):
                 logger.info(
-                    f"Self-refinement converged at step {step+1} "
+                    f"Self-refinement converged at step {step + 1} "
                     f"(score={critique_result['score']:.2f})"
                 )
                 trace.converged = True
@@ -273,28 +273,23 @@ class SelfRefinementEngine:
         score = 0.7
         satisfied = False
 
-        critique_match = re.search(
-            r'<critique>(.*?)</critique>',
-            result.content, re.DOTALL
-        )
+        critique_match = re.search(r"<critique>(.*?)</critique>", result.content, re.DOTALL)
         if critique_match:
             critique = critique_match.group(1).strip()
 
         improvements_match = re.search(
-            r'<improvements>(.*?)</improvements>',
-            result.content, re.DOTALL
+            r"<improvements>(.*?)</improvements>", result.content, re.DOTALL
         )
         if improvements_match:
             improvements = improvements_match.group(1).strip()
 
-        score_match = re.search(r'<score>([\d.]+)</score>', result.content)
+        score_match = re.search(r"<score>([\d.]+)</score>", result.content)
         if score_match:
             score = float(score_match.group(1))
             score = max(0.0, min(1.0, score))
 
         satisfied_match = re.search(
-            r'<satisfied>(YES|NO)</satisfied>',
-            result.content, re.IGNORECASE
+            r"<satisfied>(YES|NO)</satisfied>", result.content, re.IGNORECASE
         )
         if satisfied_match:
             satisfied = satisfied_match.group(1).upper() == "YES"

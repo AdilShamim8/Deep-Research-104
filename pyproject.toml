@@ -151,7 +151,16 @@ select = [
     "SIM",              # simplify
     "RUF",              # ruff-specific
 ]
-ignore = ["E501"]       # line length handled by black
+# E501: line length handled by black
+# B017: pytest.raises(Exception) is intentional in some tests
+# B904: raise from inside except — keep for now, would touch many files
+# B905: zip(strict=...) requires Python 3.10+; our code targets 3.11 but
+#        mixing strict=True/False everywhere is noise
+# E402: module-level imports after top-of-file constants is OK for
+#        lazy imports inside functions (we do this for optional deps)
+# SIM102: collapsible-if — readability wins over brevity
+# SIM108: if-else-block vs ternary — readability wins
+ignore = ["E501", "B017", "B904", "B905", "E402", "SIM102", "SIM108"]
 
 [tool.mypy]
 python_version = "3.11"

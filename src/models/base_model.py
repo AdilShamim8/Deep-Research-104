@@ -22,17 +22,19 @@ Date tag: 17 October 2026.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncGenerator, Optional
-
+from typing import Any
 
 # ── Capabilities ─────────────────────────────────────────────────────────────
 
+
 class ModelCapability(Enum):
     """Capabilities a model may advertise."""
-    REASONING = "reasoning"              # Extended thinking / CoT
-    STREAMING = "streaming"              # Token streaming
+
+    REASONING = "reasoning"  # Extended thinking / CoT
+    STREAMING = "streaming"  # Token streaming
     FUNCTION_CALLING = "function_calling"
     VISION = "vision"
     JSON_MODE = "json_mode"
@@ -42,6 +44,7 @@ class ModelCapability(Enum):
 
 
 # ── Generation config ─────────────────────────────────────────────────────────
+
 
 @dataclass
 class GenerationConfig:
@@ -64,6 +67,7 @@ class GenerationConfig:
         user:                 End-user identifier (for abuse monitoring).
         extra:                Provider-specific escape hatch.
     """
+
     max_tokens: int = 4096
     temperature: float = 0.7
     top_p: float = 0.9
@@ -71,19 +75,19 @@ class GenerationConfig:
     stream: bool = False
 
     # Reasoning-specific
-    reasoning_effort: Optional[str] = None       # "low" | "medium" | "high"
-    budget_tokens: Optional[int] = None         # DeepSeek-R1 thinking budget
+    reasoning_effort: str | None = None  # "low" | "medium" | "high"
+    budget_tokens: int | None = None  # DeepSeek-R1 thinking budget
 
     # Sampling
     n: int = 1
-    best_of: Optional[int] = None
-    seed: Optional[int] = None
+    best_of: int | None = None
+    seed: int | None = None
 
     # Structured output
-    json_schema: Optional[dict[str, Any]] = None
+    json_schema: dict[str, Any] | None = None
 
     # Telemetry / safety
-    user: Optional[str] = None
+    user: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -100,11 +104,13 @@ class GenerationConfig:
 
 # ── Response ──────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ModelResponse:
     """Unified response structure from any model provider."""
-    content: str                                  # Final answer
-    reasoning_content: Optional[str] = None        # Chain-of-thought / thinking trace
+
+    content: str  # Final answer
+    reasoning_content: str | None = None  # Chain-of-thought / thinking trace
     model: str = ""
 
     # Usage stats
@@ -120,7 +126,7 @@ class ModelResponse:
     finish_reason: str = "stop"
     latency_ms: float = 0.0
     cached: bool = False
-    request_id: Optional[str] = None
+    request_id: str | None = None
 
     # Cost — populated by the provider via update_cost()
     cost_usd: float = 0.0
@@ -172,13 +178,13 @@ def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> flo
                 break
     if not pricing:
         return 0.0
-    return (
-        (prompt_tokens / 1000.0) * pricing["input"]
-        + (completion_tokens / 1000.0) * pricing["output"]
-    )
+    return (prompt_tokens / 1000.0) * pricing["input"] + (completion_tokens / 1000.0) * pricing[
+        "output"
+    ]
 
 
 # ── Abstract base ─────────────────────────────────────────────────────────────
+
 
 class BaseModel(ABC):
     """
@@ -203,7 +209,7 @@ class BaseModel(ABC):
     async def generate(
         self,
         messages: list[dict],
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> ModelResponse:
         """Generate a response from messages."""
 
@@ -211,7 +217,7 @@ class BaseModel(ABC):
     async def stream_generate(
         self,
         messages: list[dict],
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream generation token by token."""
 
@@ -265,9 +271,7 @@ class BaseModel(ABC):
         from src.utils.token_counter import TokenCounter
 
         counter = TokenCounter(self.model_name)
-        fits, count, available = counter.check_fits_in_context(
-            messages, reserved_output_tokens
-        )
+        fits, count, _available = counter.check_fits_in_context(messages, reserved_output_tokens)
         if not fits:
             raise ValueError(
                 f"Messages ({count} tokens) exceed context limit "
@@ -291,8 +295,4 @@ class BaseModel(ABC):
 
     def __repr__(self) -> str:
         caps = sorted(c.value for c in self.capabilities)
-        return (
-            f"{self.__class__.__name__}("
-            f"model={self.model_name!r}, "
-            f"capabilities={caps})"
-        )
+        return f"{self.__class__.__name__}(model={self.model_name!r}, capabilities={caps})"

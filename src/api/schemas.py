@@ -16,11 +16,10 @@ Date tag: 17 October 2026.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Literal, Optional
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-
 
 # ── Provider + mode aliases ────────────────────────────────────────────────────
 
@@ -39,13 +38,16 @@ ResearchMode = Literal[
 
 # ── Request schemas ───────────────────────────────────────────────────────────
 
+
 class _StrictRequest(BaseModel):
     """Base for all request schemas: forbid unknown fields (fail on typos)."""
+
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
 class ResearchRequest(_StrictRequest):
     """Deep research request — the flagship endpoint."""
+
     question: str = Field(
         ...,
         min_length=5,
@@ -57,13 +59,15 @@ class ResearchRequest(_StrictRequest):
         default="openai",
         description="LLM provider to use for synthesis.",
     )
-    model_name: Optional[str] = Field(
+    model_name: str | None = Field(
         default=None,
         max_length=128,
         description="Specific model override (e.g. 'o3-mini', 'deepseek-reasoner').",
     )
     max_iterations: int = Field(
-        default=3, ge=1, le=10,
+        default=3,
+        ge=1,
+        le=10,
         description="Maximum research iterations (search -> reason -> refine).",
     )
     fast_mode: bool = Field(
@@ -86,10 +90,13 @@ class ResearchRequest(_StrictRequest):
 
 class CoTRequest(_StrictRequest):
     """Chain-of-Thought reasoning request."""
-    question: str = Field(..., min_length=3, max_length=2_000,
-                          description="Question to reason about.")
-    context: Optional[str] = Field(
-        default=None, max_length=20_000,
+
+    question: str = Field(
+        ..., min_length=3, max_length=2_000, description="Question to reason about."
+    )
+    context: str | None = Field(
+        default=None,
+        max_length=20_000,
         description="Optional background context (e.g. from web search).",
     )
     cot_mode: Literal["zero_shot", "few_shot", "structured"] = Field(
@@ -97,11 +104,13 @@ class CoTRequest(_StrictRequest):
         description="CoT prompting strategy.",
     )
     n_samples: int = Field(
-        default=1, ge=1, le=20,
+        default=1,
+        ge=1,
+        le=20,
         description="Number of independent reasoning paths (self-consistency).",
     )
     provider: ProviderName = Field(default="openai")
-    model_name: Optional[str] = Field(default=None, max_length=128)
+    model_name: str | None = Field(default=None, max_length=128)
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
 
     @field_validator("question")
@@ -112,15 +121,17 @@ class CoTRequest(_StrictRequest):
 
 class ToTRequest(_StrictRequest):
     """Tree of Thoughts search request."""
-    problem: str = Field(..., min_length=5, max_length=2_000,
-                          description="Problem to solve via ToT search.")
-    context: Optional[str] = Field(default=None, max_length=10_000)
+
+    problem: str = Field(
+        ..., min_length=5, max_length=2_000, description="Problem to solve via ToT search."
+    )
+    context: str | None = Field(default=None, max_length=10_000)
     branching_factor: int = Field(default=3, ge=2, le=6)
     max_depth: int = Field(default=4, ge=1, le=8)
     beam_width: int = Field(default=2, ge=1, le=5)
     strategy: Literal["beam", "bfs", "dfs"] = Field(default="beam")
     provider: ProviderName = Field(default="openai")
-    model_name: Optional[str] = Field(default=None, max_length=128)
+    model_name: str | None = Field(default=None, max_length=128)
 
     @field_validator("problem")
     @classmethod
@@ -130,14 +141,14 @@ class ToTRequest(_StrictRequest):
 
 class SearchRequest(_StrictRequest):
     """Web search request."""
-    query: str = Field(..., min_length=2, max_length=500,
-                       description="Search query.")
+
+    query: str = Field(..., min_length=2, max_length=500, description="Search query.")
     max_results: int = Field(default=10, ge=1, le=50)
     fetch_content: bool = Field(
         default=False,
         description="If True, fetch full page content for top results.",
     )
-    provider: Optional[SearchProviderName] = Field(
+    provider: SearchProviderName | None = Field(
         default=None,
         description="Force a specific search provider (default: auto-fallback).",
     )
@@ -150,19 +161,22 @@ class SearchRequest(_StrictRequest):
 
 # ── Response schemas ──────────────────────────────────────────────────────────
 
+
 class SourceSchema(BaseModel):
     """A single research source cited in a report."""
+
     model_config = ConfigDict(from_attributes=True)
     title: str
     url: str
     domain: str
     relevance_score: float = Field(ge=0.0, le=1.0)
     snippet: str = ""
-    published_date: Optional[str] = None
+    published_date: str | None = None
 
 
 class ResearchResponse(BaseModel):
     """Deep research response."""
+
     question: str
     answer: str
     confidence: Confidence
@@ -172,15 +186,15 @@ class ResearchResponse(BaseModel):
     total_tokens_used: int
     synthesis_model: str
     processing_time_ms: float
-    request_id: Optional[str] = None
+    request_id: str | None = None
 
     @classmethod
     def from_report(
         cls,
         report: Any,
         processing_time_ms: float = 0.0,
-        request_id: Optional[str] = None,
-    ) -> "ResearchResponse":
+        request_id: str | None = None,
+    ) -> ResearchResponse:
         """Build a ResearchResponse from a ResearchReport dataclass."""
         return cls(
             question=report.question,
@@ -208,28 +222,31 @@ class ResearchResponse(BaseModel):
 
 class CoTResponse(BaseModel):
     """Chain-of-Thought response."""
+
     answer: str
     reasoning: str
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     supporting_votes: int = 1
     total_votes: int = 1
     model: str = ""
-    request_id: Optional[str] = None
+    request_id: str | None = None
 
 
 class ToTResponse(BaseModel):
     """Tree of Thoughts response."""
+
     answer: str
     best_score: float = Field(ge=0.0, le=1.0)
     total_nodes_explored: int
     search_strategy: str
     path_length: int
     model: str = ""
-    request_id: Optional[str] = None
+    request_id: str | None = None
 
 
 class SearchResultSchema(BaseModel):
     """A single search result."""
+
     model_config = ConfigDict(from_attributes=True)
     title: str
     url: str
@@ -237,30 +254,32 @@ class SearchResultSchema(BaseModel):
     domain: str
     position: int
     provider: str
-    published_date: Optional[str] = None
+    published_date: str | None = None
 
 
 class SearchResponse(BaseModel):
     """Web search response."""
+
     query: str
     results: list[SearchResultSchema]
     total_results: int
     provider: str
     search_time_ms: float
     cached: bool = False
-    request_id: Optional[str] = None
+    request_id: str | None = None
 
 
 class ErrorResponse(BaseModel):
     """Standardized error response."""
+
     error: str = Field(description="Short error code/category.")
     detail: str = Field(default="", description="Human-readable detail.")
     request_id: str = Field(default="", description="Correlation ID.")
-    error_code: Optional[str] = Field(
+    error_code: str | None = Field(
         default=None,
         description="Machine-readable error code (e.g. 'rate_limited').",
     )
-    timestamp: Optional[str] = Field(
+    timestamp: str | None = Field(
         default=None,
         description="ISO-8601 UTC timestamp of the error.",
     )
@@ -270,22 +289,24 @@ class ErrorResponse(BaseModel):
         cls,
         exc: Exception,
         request_id: str = "",
-        error_code: Optional[str] = None,
-        detail: Optional[str] = None,
-    ) -> "ErrorResponse":
+        error_code: str | None = None,
+        detail: str | None = None,
+    ) -> ErrorResponse:
         return cls(
             error=type(exc).__name__,
             detail=detail or str(exc),
             request_id=request_id,
             error_code=error_code,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )
 
 
 # ── Health + version ──────────────────────────────────────────────────────────
 
+
 class HealthResponse(BaseModel):
     """Health-check response."""
+
     status: Literal["healthy", "degraded", "unhealthy"] = "healthy"
     python_version: str
     version: str
@@ -297,6 +318,7 @@ class HealthResponse(BaseModel):
 
 class VersionResponse(BaseModel):
     """Version info response."""
+
     name: str
     version: str
     build_date: str
@@ -306,6 +328,7 @@ class VersionResponse(BaseModel):
 
 class ReadyResponse(BaseModel):
     """Readiness probe response — all subsystems must report ready."""
+
     status: Literal["ready", "not_ready"] = "ready"
     checks: dict[str, bool] = Field(default_factory=dict)
     timestamp: float

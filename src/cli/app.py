@@ -21,16 +21,13 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-from typing import Optional
 
 import typer
+from config import __build_date__, __version__
+from config.settings import settings
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-
-from config import __version__, __build_date__
-from config.settings import settings
-
 
 app = typer.Typer(
     name="deep-research",
@@ -43,8 +40,10 @@ console = Console()
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-def _get_model(provider: str, model_name: Optional[str] = None):
+
+def _get_model(provider: str, model_name: str | None = None):
     from src.models import get_model_factory
+
     return get_model_factory(provider, model_name)
 
 
@@ -53,6 +52,7 @@ def _print_panel(title: str, body: str, style: str = "cyan") -> None:
 
 
 # ── Commands ─────────────────────────────────────────────────────────────────
+
 
 @app.command()
 def version() -> None:
@@ -73,7 +73,7 @@ def version() -> None:
 def ask(
     question: str = typer.Argument(..., help="Research question to investigate."),
     provider: str = typer.Option("openai", help="LLM provider."),
-    model_name: Optional[str] = typer.Option(None, help="Model override."),
+    model_name: str | None = typer.Option(None, help="Model override."),
     max_iterations: int = typer.Option(3, min=1, max=10),
     fast_mode: bool = typer.Option(False, help="Single iteration, fewer queries."),
     mode: str = typer.Option("deep_research", help="Pipeline mode."),
@@ -99,7 +99,7 @@ def ask(
 def cot(
     question: str = typer.Argument(..., help="Question to reason about."),
     provider: str = typer.Option("openai"),
-    model_name: Optional[str] = typer.Option(None),
+    model_name: str | None = typer.Option(None),
     mode: str = typer.Option("structured", help="CoT mode."),
     n_samples: int = typer.Option(1, min=1, max=20, help="Self-consistency samples."),
     temperature: float = typer.Option(0.7, min=0.0, max=2.0),
@@ -114,7 +114,10 @@ def cot(
         config = GenerationConfig(temperature=temperature, max_tokens=4_096)
         if n_samples > 1:
             result = await engine.self_consistency(
-                question=question, n_samples=n_samples, mode=mode, config=config,
+                question=question,
+                n_samples=n_samples,
+                mode=mode,
+                config=config,
             )
         else:
             result = await engine.generate(question=question, mode=mode, config=config)
@@ -132,7 +135,7 @@ def cot(
 def tot(
     problem: str = typer.Argument(..., help="Problem to solve via Tree of Thoughts."),
     provider: str = typer.Option("openai"),
-    model_name: Optional[str] = typer.Option(None),
+    model_name: str | None = typer.Option(None),
     strategy: str = typer.Option("beam", help="beam | bfs | dfs"),
     branching_factor: int = typer.Option(3, min=2, max=6),
     max_depth: int = typer.Option(4, min=1, max=8),
@@ -181,12 +184,17 @@ def search(
     async def _run():
         response = await search_engine.search(query)
         if json_output:
-            console.print_json(json.dumps({
-                "query": response.query,
-                "provider": response.provider,
-                "total_results": response.total_results,
-                "results": [r.to_dict() for r in response.results[:max_results]],
-            }, default=str))
+            console.print_json(
+                json.dumps(
+                    {
+                        "query": response.query,
+                        "provider": response.provider,
+                        "total_results": response.total_results,
+                        "results": [r.to_dict() for r in response.results[:max_results]],
+                    },
+                    default=str,
+                )
+            )
             return
         table = Table(title=f"Search results — {query[:60]}")
         table.add_column("#", style="dim")
@@ -209,6 +217,7 @@ def serve(
 ) -> None:
     """Start the FastAPI server (production mode by default)."""
     import uvicorn
+
     uvicorn.run(
         "src.api.main:app",
         host=host,
@@ -245,6 +254,7 @@ def providers() -> None:
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     """Entry point referenced by [project.scripts] in pyproject.toml."""

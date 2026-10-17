@@ -19,14 +19,18 @@ Date tag: 17 October 2026.
 
 from __future__ import annotations
 
-import os
 import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
 
+from config.logging_config import (
+    bind_request_id,
+    clear_request_context,
+    setup_logging,
+)
+from config.settings import settings
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -40,15 +44,8 @@ from prometheus_client import (
     generate_latest,
 )
 
-from config.logging_config import (
-    bind_request_id,
-    clear_request_context,
-    setup_logging,
-)
-from config.settings import settings
 from src.api.routes import router
 from src.api.schemas import ErrorResponse, HealthResponse, VersionResponse
-
 
 # ── Prometheus metrics ────────────────────────────────────────────────────────
 
@@ -88,8 +85,7 @@ def _validate_production_requirements() -> list[str]:
             issues.append("JWT_SECRET must be set and >= 16 chars in production")
         if not settings.models.openai_api_key and not settings.models.deepseek_api_key:
             issues.append(
-                "At least one of OPENAI_API_KEY or DEEPSEEK_API_KEY must be set "
-                "in production"
+                "At least one of OPENAI_API_KEY or DEEPSEEK_API_KEY must be set in production"
             )
         if "*" in sec.allowed_origins_list:
             issues.append("Wildcard CORS origin not allowed in production")
@@ -110,6 +106,7 @@ async def _initialize_subsystems() -> dict[str, bool]:
     # Cache (Redis optional; falls back to disk + LRU)
     try:
         from src.utils.cache import cache
+
         redis = await cache._get_redis()
         status["cache"] = redis is not None
         if status["cache"]:
@@ -149,8 +146,7 @@ async def lifespan(app: FastAPI):
     app.state.subsystem_status = subsystem_status
 
     logger.info(
-        f"Startup complete | subsystems={subsystem_status} "
-        f"workers_hint={settings.app_workers}"
+        f"Startup complete | subsystems={subsystem_status} workers_hint={settings.app_workers}"
     )
 
     yield
@@ -159,16 +155,19 @@ async def lifespan(app: FastAPI):
     logger.info("Deep Research API shutting down…")
     try:
         from src.utils.cache import cache
+
         await cache.close()
     except Exception as e:
         logger.warning(f"Cache close failed: {e}")
     try:
         from src.search.web_search import search_engine
+
         await search_engine.close()
     except Exception as e:
         logger.warning(f"Search engine close failed: {e}")
     try:
         from src.search.content_extractor import extractor
+
         await extractor.close()
     except Exception as e:
         logger.warning(f"Extractor close failed: {e}")
@@ -199,7 +198,8 @@ def _apply_security_headers(response: Response) -> None:
 
 # ── Request body size cap ─────────────────────────────────────────────────────
 
-async def _enforce_body_size(request: Request) -> Optional[JSONResponse]:
+
+async def _enforce_body_size(request: Request) -> JSONResponse | None:
     """Reject requests with Content-Length beyond the configured cap.
 
     Returns a JSONResponse to short-circuit, or None to allow the request.
@@ -209,8 +209,7 @@ async def _enforce_body_size(request: Request) -> Optional[JSONResponse]:
     if content_length and content_length.isdigit() and int(content_length) > max_bytes:
         request_id = getattr(request.state, "request_id", "unknown")
         logger.warning(
-            f"[{request_id}] Request body too large: "
-            f"{int(content_length)} > {max_bytes} bytes"
+            f"[{request_id}] Request body too large: {int(content_length)} > {max_bytes} bytes"
         )
         return JSONResponse(
             status_code=413,
@@ -225,6 +224,7 @@ async def _enforce_body_size(request: Request) -> Optional[JSONResponse]:
 
 
 # ── App factory ──────────────────────────────────────────────────────────────
+
 
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
@@ -243,10 +243,7 @@ def create_app() -> FastAPI:
     )
 
     # ── CORS ─────────────────────────────────────────────────────────────────
-    allowed_origins = (
-        ["*"] if settings.is_development
-        else settings.security.allowed_origins_list
-    )
+    allowed_origins = ["*"] if settings.is_development else settings.security.allowed_origins_list
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
@@ -305,9 +302,7 @@ def create_app() -> FastAPI:
         ).inc()
         REQUEST_LATENCY.labels(endpoint=request.url.path).observe(latency)
 
-        logger.info(
-            f"[{request_id}] {response.status_code} ({latency:.3f}s)"
-        )
+        logger.info(f"[{request_id}] {response.status_code} ({latency:.3f}s)")
         clear_request_context()
         return response
 
@@ -334,6 +329,7 @@ def create_app() -> FastAPI:
     async def health() -> HealthResponse:
         """Kubernetes liveness probe. Returns 200 if the process is alive."""
         from src.utils.cache import cache
+
         redis_ok = False
         try:
             redis = await cache._get_redis()
@@ -357,10 +353,12 @@ def create_app() -> FastAPI:
         """Kubernetes readiness probe. Returns 200 only when all
         subsystems report healthy; 503 otherwise."""
         from src.api.schemas import ReadyResponse
+
         checks: dict[str, bool] = getattr(app.state, "subsystem_status", {})
         # Re-check Redis at probe time
         try:
             from src.utils.cache import cache
+
             redis = await cache._get_redis()
             checks["cache"] = redis is not None
         except Exception:
@@ -423,6 +421,7 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "src.api.main:app",
         host="0.0.0.0",

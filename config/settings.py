@@ -17,13 +17,13 @@ Author: Adil Shamim <adilshamim8@users.noreply.github.com>
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 # ── Model providers ────────────────────────────────────────────────────────────
+
 
 class ModelConfig(BaseSettings):
     """Configuration for individual LLM providers."""
@@ -32,7 +32,7 @@ class ModelConfig(BaseSettings):
 
     # OpenAI / o-family
     openai_api_key: str = Field(default="", env="OPENAI_API_KEY")
-    openai_org_id: Optional[str] = Field(default=None, env="OPENAI_ORG_ID")
+    openai_org_id: str | None = Field(default=None, env="OPENAI_ORG_ID")
     openai_default_model: str = Field(default="o3-mini", env="OPENAI_DEFAULT_MODEL")
     openai_reasoning_model: str = Field(default="o3", env="OPENAI_REASONING_MODEL")
     openai_reasoning_effort: Literal["low", "medium", "high"] = Field(
@@ -43,9 +43,7 @@ class ModelConfig(BaseSettings):
 
     # DeepSeek
     deepseek_api_key: str = Field(default="", env="DEEPSEEK_API_KEY")
-    deepseek_base_url: str = Field(
-        default="https://api.deepseek.com/v1", env="DEEPSEEK_BASE_URL"
-    )
+    deepseek_base_url: str = Field(default="https://api.deepseek.com/v1", env="DEEPSEEK_BASE_URL")
     deepseek_reasoning_model: str = Field(
         default="deepseek-reasoner", env="DEEPSEEK_REASONING_MODEL"
     )
@@ -57,9 +55,7 @@ class ModelConfig(BaseSettings):
     local_model_type: Literal["ollama", "vllm", "llamacpp"] = Field(
         default="ollama", env="LOCAL_MODEL_TYPE"
     )
-    ollama_base_url: str = Field(
-        default="http://localhost:11434", env="OLLAMA_BASE_URL"
-    )
+    ollama_base_url: str = Field(default="http://localhost:11434", env="OLLAMA_BASE_URL")
     ollama_model: str = Field(default="deepseek-r1:7b", env="OLLAMA_MODEL")
 
     @field_validator("openai_api_key", "deepseek_api_key")
@@ -76,6 +72,7 @@ class ModelConfig(BaseSettings):
 
 
 # ── Web search ─────────────────────────────────────────────────────────────────
+
 
 class SearchConfig(BaseSettings):
     """Search engine configuration."""
@@ -112,15 +109,14 @@ class SearchConfig(BaseSettings):
 
 # ── Reasoning pipeline ───────────────────────────────────────────────────────
 
+
 class ReasoningConfig(BaseSettings):
     """Reasoning pipeline configuration."""
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore")
 
     # Token budgets
-    max_tokens_per_request: int = Field(
-        default=128_000, env="MAX_TOKENS_PER_REQUEST"
-    )
+    max_tokens_per_request: int = Field(default=128_000, env="MAX_TOKENS_PER_REQUEST")
     reasoning_budget: int = Field(default=32_768, env="REASONING_BUDGET")
     max_output_tokens: int = Field(default=8_192, env="MAX_OUTPUT_TOKENS")
 
@@ -136,12 +132,8 @@ class ReasoningConfig(BaseSettings):
     tot_beam_width: int = Field(default=2, env="TOT_BEAM_WIDTH")
 
     # Research loop
-    max_research_iterations: int = Field(
-        default=5, env="MAX_RESEARCH_ITERATIONS"
-    )
-    max_search_per_iteration: int = Field(
-        default=3, env="MAX_SEARCH_PER_ITERATION"
-    )
+    max_research_iterations: int = Field(default=5, env="MAX_RESEARCH_ITERATIONS")
+    max_search_per_iteration: int = Field(default=3, env="MAX_SEARCH_PER_ITERATION")
 
     @field_validator("temperature")
     @classmethod
@@ -167,6 +159,7 @@ class ReasoningConfig(BaseSettings):
 
 # ── Security ─────────────────────────────────────────────────────────────────
 
+
 class SecurityConfig(BaseSettings):
     """API gateway / authentication / rate limiting."""
 
@@ -176,14 +169,10 @@ class SecurityConfig(BaseSettings):
     jwt_secret: str = Field(default="", env="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
     jwt_expire_minutes: int = Field(default=60, env="JWT_EXPIRE_MINUTES")
-    allowed_origins: str = Field(
-        default="https://deepresearch.space-z.ai", env="ALLOWED_ORIGINS"
-    )
+    allowed_origins: str = Field(default="https://deepresearch.space-z.ai", env="ALLOWED_ORIGINS")
     rate_limit_rpm: int = Field(default=60, env="RATE_LIMIT_RPM")
     rate_limit_burst: int = Field(default=10, env="RATE_LIMIT_BURST")
-    request_max_body_bytes: int = Field(
-        default=1_048_576, env="REQUEST_MAX_BODY_BYTES"
-    )
+    request_max_body_bytes: int = Field(default=1_048_576, env="REQUEST_MAX_BODY_BYTES")
 
     @property
     def allowed_origins_list(self) -> list[str]:
@@ -205,22 +194,20 @@ class SecurityConfig(BaseSettings):
 
 # ── Observability ────────────────────────────────────────────────────────────
 
+
 class ObservabilityConfig(BaseSettings):
     """Telemetry, tracing, metrics."""
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore")
 
     prometheus_enabled: bool = Field(default=True, env="PROMETHEUS_ENABLED")
-    otel_exporter_otlp_endpoint: str = Field(
-        default="", env="OTEL_EXPORTER_OTLP_ENDPOINT"
-    )
-    otel_service_name: str = Field(
-        default="deep-research-104", env="OTEL_SERVICE_NAME"
-    )
+    otel_exporter_otlp_endpoint: str = Field(default="", env="OTEL_EXPORTER_OTLP_ENDPOINT")
+    otel_service_name: str = Field(default="deep-research-104", env="OTEL_SERVICE_NAME")
     sentry_dsn: str = Field(default="", env="SENTRY_DSN")
 
 
 # ── Storage ──────────────────────────────────────────────────────────────────
+
 
 class StorageConfig(BaseSettings):
     """Persistent storage for research results."""
@@ -237,6 +224,7 @@ class StorageConfig(BaseSettings):
 
 
 # ── Master settings ──────────────────────────────────────────────────────────
+
 
 class AppSettings(BaseSettings):
     """Master application settings — singleton at module import."""
@@ -256,12 +244,8 @@ class AppSettings(BaseSettings):
     app_port: int = Field(default=8000, env="APP_PORT")
     app_workers: int = Field(default=4, env="APP_WORKERS")
 
-    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
-        default="INFO", env="LOG_LEVEL"
-    )
-    redis_url: str = Field(
-        default="redis://localhost:6379/0", env="REDIS_URL"
-    )
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO", env="LOG_LEVEL")
+    redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
     redis_password: str = Field(default="", env="REDIS_PASSWORD")
     redis_max_connections: int = Field(default=50, env="REDIS_MAX_CONNECTIONS")
 
@@ -309,7 +293,7 @@ class AppSettings(BaseSettings):
         return v
 
     @model_validator(mode="after")
-    def _enforce_production_constraints(self) -> "AppSettings":
+    def _enforce_production_constraints(self) -> AppSettings:
         """Production-only hard failures."""
         if self.app_env == "production":
             if not self.security.jwt_secret if hasattr(self, "security") else False:
@@ -342,25 +326,31 @@ class AppSettings(BaseSettings):
 # Using lru_cache ensures a single shared instance per process, which keeps
 # Redis connections / HTTP pools cheap and avoids surprising re-instantiation.
 
+
 @lru_cache(maxsize=1)
 def _get_model_config() -> ModelConfig:
     return ModelConfig()
+
 
 @lru_cache(maxsize=1)
 def _get_search_config() -> SearchConfig:
     return SearchConfig()
 
+
 @lru_cache(maxsize=1)
 def _get_reasoning_config() -> ReasoningConfig:
     return ReasoningConfig()
+
 
 @lru_cache(maxsize=1)
 def _get_security_config() -> SecurityConfig:
     return SecurityConfig()
 
+
 @lru_cache(maxsize=1)
 def _get_observability_config() -> ObservabilityConfig:
     return ObservabilityConfig()
+
 
 @lru_cache(maxsize=1)
 def _get_storage_config() -> StorageConfig:

@@ -1,15 +1,13 @@
 """Tests for model providers."""
 
-import pytest
-import asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from src.models.base_model import GenerationConfig, ModelResponse
-from src.utils.token_counter import TokenCounter, MODEL_CONTEXT_LIMITS
+from src.utils.token_counter import TokenCounter
 
 
 class TestTokenCounter:
-
     def test_count_tokens_basic(self):
         counter = TokenCounter("gpt-4o")
         count = counter.count_tokens("Hello world")
@@ -32,9 +30,7 @@ class TestTokenCounter:
     def test_check_fits_in_context_fits(self):
         counter = TokenCounter("gpt-4o")
         messages = [{"role": "user", "content": "Hi"}]
-        fits, count, available = counter.check_fits_in_context(
-            messages, reserved_output_tokens=100
-        )
+        fits, count, available = counter.check_fits_in_context(messages, reserved_output_tokens=100)
         assert fits is True
         assert count > 0
         assert available > 0
@@ -44,7 +40,7 @@ class TestTokenCounter:
         # Create a very long message
         long_text = "word " * 150_000  # Way over any limit
         messages = [{"role": "user", "content": long_text}]
-        fits, count, available = counter.check_fits_in_context(
+        fits, _count, available = counter.check_fits_in_context(
             messages, reserved_output_tokens=100
         )
         assert fits is False
@@ -94,7 +90,6 @@ class TestTokenCounter:
 
 
 class TestModelResponse:
-
     def test_model_response_defaults(self):
         resp = ModelResponse(content="Hello", model="test-model")
         assert resp.content == "Hello"
@@ -113,7 +108,6 @@ class TestModelResponse:
 
 @pytest.mark.asyncio
 class TestOpenAIModel:
-
     async def test_generate_mock(self):
         """Test OpenAI model with mocked API call."""
         from src.models.openai_models import OpenAIModel
@@ -128,9 +122,7 @@ class TestOpenAIModel:
         mock_response.usage.total_tokens = 15
 
         model = OpenAIModel("gpt-4o", api_key="test-key")
-        model._client.chat.completions.create = AsyncMock(
-                return_value=mock_response
-        )
+        model._client.chat.completions.create = AsyncMock(return_value=mock_response)
 
         response = await model.generate(
             messages=[{"role": "user", "content": "Hi"}],
@@ -153,18 +145,13 @@ class TestOpenAIModel:
 
         # System message should be merged into user message
         assert not any(m["role"] == "system" for m in prepared)
-        assert any(
-            "Be helpful." in m["content"]
-            for m in prepared if m["role"] == "user"
-        )
+        assert any("Be helpful." in m["content"] for m in prepared if m["role"] == "user")
 
     async def test_validate_messages_overflow(self):
         """Test that token overflow raises ValueError."""
         from src.models.openai_models import OpenAIModel
 
         model = OpenAIModel("gpt-4o", api_key="test-key")
-        huge_messages = [
-            {"role": "user", "content": "word " * 200_000}
-        ]
+        huge_messages = [{"role": "user", "content": "word " * 200_000}]
         with pytest.raises(ValueError, match="exceed context limit"):
             model.validate_messages(huge_messages)

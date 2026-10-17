@@ -22,4 +22,4 @@ __build_date__ = "2026-10-17"
 __author__ = "Adil Shamim"
 __license__ = "MIT"
 
-__all__ = ["__version__", "__build_date__", "__author__", "__license__"]
+__all__ = ["__author__", "__build_date__", "__license__", "__version__"]

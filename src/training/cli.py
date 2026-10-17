@@ -17,15 +17,11 @@ Date tag: 17 October 2026.
 from __future__ import annotations
 
 import asyncio
-import sys
-from typing import Optional
 
 import typer
+from config import __version__
 from rich.console import Console
 from rich.panel import Panel
-
-from config import __version__
-
 
 app = typer.Typer(
     name="deep-research-train",
@@ -60,6 +56,7 @@ def version() -> None:
     """Print version + whether training extras are available."""
     try:
         import torch
+
         torch_version = torch.__version__
         cuda = torch.cuda.is_available()
     except ImportError:

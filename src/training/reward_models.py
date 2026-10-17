@@ -11,10 +11,9 @@ Both use a pretrained LLM backbone with a value head added.
 Date tag: 17 October 2026.
 """
 
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+
 from loguru import logger
 
 
@@ -24,12 +23,13 @@ class PreferencePair:
     Human preference pair: chosen (better) vs rejected (worse) response.
     Standard format for reward model training.
     """
+
     question: str
-    chosen: str                  # Better response
-    rejected: str                # Worse response
+    chosen: str  # Better response
+    rejected: str  # Worse response
     chosen_reasoning: str = ""
     rejected_reasoning: str = ""
-    source: str = "human"        # "human" | "synthetic" | "llm_judge"
+    source: str = "human"  # "human" | "synthetic" | "llm_judge"
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -48,9 +48,10 @@ class StepAnnotation:
     """
     PRM training annotation: correctness label for each reasoning step.
     """
+
     question: str
     steps: list[str]
-    labels: list[int]            # 1 = correct, 0 = incorrect
+    labels: list[int]  # 1 = correct, 0 = incorrect
     final_answer: str
     is_correct: bool
     annotator: str = "llm_judge"
@@ -77,8 +78,8 @@ class SyntheticPreferenceGenerator:
 
     def __init__(
         self,
-        teacher_model,      # Strong judge model (e.g., o3)
-        student_model,      # Model being evaluated (e.g., local 7B)
+        teacher_model,  # Strong judge model (e.g., o3)
+        student_model,  # Model being evaluated (e.g., local 7B)
         n_student_samples: int = 4,
     ):
         self.teacher = teacher_model
@@ -95,12 +96,11 @@ class SyntheticPreferenceGenerator:
         2. Score each with teacher
         3. Create chosen/rejected pairs from highest/lowest scored
         """
-        import asyncio
         from src.reasoning.parallel_sampling import ParallelSampler
         from src.reasoning.verifier import OutcomeRewardModel
 
         sampler = ParallelSampler(self.student)
-        orm = OutcomeRewardModel(self.teacher)
+        OutcomeRewardModel(self.teacher)
 
         pairs: list[PreferencePair] = []
 
@@ -130,25 +130,24 @@ class SyntheticPreferenceGenerator:
 
                 # Only create pair if there's meaningful quality difference
                 if chosen.score - rejected.score > 0.2:
-                    pairs.append(PreferencePair(
-                        question=question,
-                        chosen=chosen.content,
-                        rejected=rejected.content,
-                        source="synthetic",
-                        metadata={
-                            "chosen_score": chosen.score,
-                            "rejected_score": rejected.score,
-                        }
-                    ))
+                    pairs.append(
+                        PreferencePair(
+                            question=question,
+                            chosen=chosen.content,
+                            rejected=rejected.content,
+                            source="synthetic",
+                            metadata={
+                                "chosen_score": chosen.score,
+                                "rejected_score": rejected.score,
+                            },
+                        )
+                    )
 
             except Exception as e:
                 logger.warning(f"Pair generation failed: {e}")
                 continue
 
-        logger.info(
-            f"Generated {len(pairs)} preference pairs "
-            f"from {len(questions)} questions"
-        )
+        logger.info(f"Generated {len(pairs)} preference pairs from {len(questions)} questions")
         return pairs
 
 
@@ -182,20 +181,16 @@ class RewardModelTrainer:
         """Train ORM on preference pairs."""
         try:
             import torch
-            import torch.nn as nn
-            from torch.utils.data import Dataset, DataLoader
+            from torch.utils.data import DataLoader, Dataset
             from transformers import (
                 AutoModelForSequenceClassification,
                 AutoTokenizer,
                 get_linear_schedule_with_warmup,
             )
         except ImportError as e:
-            raise ImportError(f"Training requires PyTorch/Transformers: {e}")
+            raise ImportError(f"Training requires PyTorch/Transformers: {e}") from e
 
-        logger.info(
-            f"ORM training | pairs={len(pairs)} | "
-            f"model={self.base_model_name}"
-        )
+        logger.info(f"ORM training | pairs={len(pairs)} | model={self.base_model_name}")
 
         tokenizer = AutoTokenizer.from_pretrained(
             self.base_model_name,
@@ -224,14 +219,8 @@ class RewardModelTrainer:
 
             def __getitem__(self, idx):
                 pair = self.pairs[idx]
-                chosen_text = (
-                    f"Question: {pair.question}\n"
-                    f"Answer: {pair.chosen}"
-                )
-                rejected_text = (
-                    f"Question: {pair.question}\n"
-                    f"Answer: {pair.rejected}"
-                )
+                chosen_text = f"Question: {pair.question}\nAnswer: {pair.chosen}"
+                rejected_text = f"Question: {pair.question}\nAnswer: {pair.rejected}"
                 chosen_enc = self.tokenizer(
                     chosen_text,
                     truncation=True,
@@ -254,13 +243,9 @@ class RewardModelTrainer:
                 }
 
         dataset = PairDataset(pairs, tokenizer, max_seq_length)
-        dataloader = DataLoader(
-            dataset, batch_size=batch_size, shuffle=True
-        )
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-        optimizer = torch.optim.AdamW(
-            model.parameters(), lr=learning_rate
-        )
+        optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
         total_steps = len(dataloader) * num_epochs
         scheduler = get_linear_schedule_with_warmup(
             optimizer,
@@ -285,9 +270,7 @@ class RewardModelTrainer:
                 ).logits
 
                 # Bradley-Terry pairwise ranking loss
-                loss = -torch.nn.functional.logsigmoid(
-                    chosen_rewards - rejected_rewards
-                ).mean()
+                loss = -torch.nn.functional.logsigmoid(chosen_rewards - rejected_rewards).mean()
 
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -296,7 +279,7 @@ class RewardModelTrainer:
                 total_loss += loss.item()
 
             avg_loss = total_loss / len(dataloader)
-            logger.info(f"Epoch {epoch+1}/{num_epochs} | loss={avg_loss:.4f}")
+            logger.info(f"Epoch {epoch + 1}/{num_epochs} | loss={avg_loss:.4f}")
 
         # Save
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)

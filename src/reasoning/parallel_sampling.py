@@ -14,8 +14,9 @@ Date tag: 17 October 2026.
 """
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+
 from loguru import logger
 
 from src.models.base_model import BaseModel, GenerationConfig, ModelResponse
@@ -24,8 +25,9 @@ from src.models.base_model import BaseModel, GenerationConfig, ModelResponse
 @dataclass
 class SampleScore:
     """A scored candidate sample."""
+
     content: str
-    reasoning: Optional[str]
+    reasoning: str | None
     score: float
     metadata: dict = field(default_factory=dict)
 
@@ -33,8 +35,9 @@ class SampleScore:
 @dataclass
 class ParallelSamplingResult:
     """Result from parallel sampling."""
+
     best_content: str
-    best_reasoning: Optional[str]
+    best_reasoning: str | None
     best_score: float
     all_samples: list[SampleScore]
     n_generated: int
@@ -58,7 +61,7 @@ class ParallelSampler:
     def __init__(
         self,
         model: BaseModel,
-        scorer: Optional[Callable[[str], float]] = None,
+        scorer: Callable[[str], float] | None = None,
     ):
         self.model = model
         # Default scorer: length-calibrated heuristic
@@ -71,8 +74,8 @@ class ParallelSampler:
         self,
         messages: list[dict],
         n: int = 5,
-        config: Optional[GenerationConfig] = None,
-        selection: str = "score",       # "score" | "tournament" | "diverse"
+        config: GenerationConfig | None = None,
+        selection: str = "score",  # "score" | "tournament" | "diverse"
     ) -> ParallelSamplingResult:
         """
         Generate N samples in parallel, return best.
@@ -86,20 +89,15 @@ class ParallelSampler:
         config = config or GenerationConfig(
             max_tokens=4096,
             temperature=0.8,
-            n=1,                    # We parallelize manually for control
+            n=1,  # We parallelize manually for control
         )
 
         logger.info(
-            f"Parallel sampling: n={n} | "
-            f"model={self.model.model_name} | "
-            f"strategy={selection}"
+            f"Parallel sampling: n={n} | model={self.model.model_name} | strategy={selection}"
         )
 
         # Launch all samples concurrently
-        tasks = [
-            self._safe_generate(messages, config, idx=i)
-            for i in range(n)
-        ]
+        tasks = [self._safe_generate(messages, config, idx=i) for i in range(n)]
         results = await asyncio.gather(*tasks)
 
         # Separate successes from failures
@@ -123,10 +121,7 @@ class ParallelSampler:
         else:
             best = max(scored, key=lambda s: s.score)
 
-        logger.info(
-            f"Best sample score={best.score:.3f} | "
-            f"successful={len(successful)}/{n}"
-        )
+        logger.info(f"Best sample score={best.score:.3f} | successful={len(successful)}/{n}")
 
         return ParallelSamplingResult(
             best_content=best.content,
@@ -142,7 +137,7 @@ class ParallelSampler:
         self,
         messages: list[dict],
         n: int = 5,
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> ParallelSamplingResult:
         """
         Use model's native n parameter (one API call, N completions).
@@ -154,15 +149,12 @@ class ParallelSampler:
             n=n,
         )
 
-        logger.info(
-            f"Native parallel sampling: n={n} | "
-            f"model={self.model.model_name}"
-        )
+        logger.info(f"Native parallel sampling: n={n} | model={self.model.model_name}")
 
         response = await self.model.generate(messages, config)
 
         # Collect all completions
-        all_contents = [response.content] + response.alternatives
+        all_contents = [response.content, *response.alternatives]
         samples = [
             ModelResponse(
                 content=c,
@@ -193,7 +185,7 @@ class ParallelSampler:
         messages: list[dict],
         config: GenerationConfig,
         idx: int = 0,
-    ) -> Optional[ModelResponse]:
+    ) -> ModelResponse | None:
         """Generate with exception handling."""
         try:
             return await self.model.generate(messages, config)
@@ -225,7 +217,7 @@ class ParallelSampler:
                 "model": response.model,
                 "tokens": response.completion_tokens,
                 "finish_reason": response.finish_reason,
-            }
+            },
         )
 
     async def _tournament_select(
@@ -246,9 +238,7 @@ class ParallelSampler:
         while len(competitors) > 1:
             next_round = []
             for i in range(0, len(competitors) - 1, 2):
-                winner = await self._compare_pair(
-                    competitors[i], competitors[i + 1]
-                )
+                winner = await self._compare_pair(competitors[i], competitors[i + 1])
                 next_round.append(winner)
             # Handle odd one out
             if len(competitors) % 2 == 1:
@@ -269,7 +259,7 @@ class ParallelSampler:
                 "content": (
                     "You are an expert evaluator. Compare the two responses "
                     "below and pick the better one. Reply with only 'A' or 'B'."
-                )
+                ),
             },
             {
                 "role": "user",
@@ -277,14 +267,14 @@ class ParallelSampler:
                     f"Response A:\n{a.content[:2000]}\n\n"
                     f"Response B:\n{b.content[:2000]}\n\n"
                     "Which response is better? Reply A or B only."
-                )
-            }
+                ),
+            },
         ]
         try:
             from src.models.base_model import GenerationConfig
+
             resp = await self.model.generate(
-                comparison_messages,
-                GenerationConfig(max_tokens=5, temperature=0.0)
+                comparison_messages, GenerationConfig(max_tokens=5, temperature=0.0)
             )
             choice = resp.content.strip().upper()
             return a if choice.startswith("A") else b
@@ -307,8 +297,7 @@ class ParallelSampler:
         for candidate in sorted_samples[1:]:
             # Check similarity to already-selected samples
             is_diverse = all(
-                self._text_similarity(candidate.content, sel.content) < 0.7
-                for sel in selected
+                self._text_similarity(candidate.content, sel.content) < 0.7 for sel in selected
             )
             if is_diverse:
                 selected.append(candidate)
@@ -319,9 +308,10 @@ class ParallelSampler:
     @staticmethod
     def _text_similarity(a: str, b: str) -> float:
         """Simple Jaccard similarity on word bigrams."""
+
         def bigrams(text: str) -> set:
             words = text.lower().split()
-            return {(words[i], words[i+1]) for i in range(len(words)-1)}
+            return {(words[i], words[i + 1]) for i in range(len(words) - 1)}
 
         bg_a = bigrams(a)
         bg_b = bigrams(b)
@@ -351,19 +341,27 @@ class ParallelSampler:
 
         # Reasoning structure markers
         structure_markers = [
-            "step", "first", "second", "third", "therefore",
-            "because", "thus", "since", "given that", "conclude",
+            "step",
+            "first",
+            "second",
+            "third",
+            "therefore",
+            "because",
+            "thus",
+            "since",
+            "given that",
+            "conclude",
         ]
-        structure_count = sum(
-            1 for m in structure_markers
-            if m in content.lower()
-        )
+        structure_count = sum(1 for m in structure_markers if m in content.lower())
         score += min(structure_count / 5, 1.0) * 0.2
 
         # Penalize refusal/uncertainty
         refusal_markers = [
-            "i cannot", "i'm not able", "i don't know",
-            "i'm uncertain", "i can't determine"
+            "i cannot",
+            "i'm not able",
+            "i don't know",
+            "i'm uncertain",
+            "i can't determine",
         ]
         if any(m in content.lower() for m in refusal_markers):
             score -= 0.3

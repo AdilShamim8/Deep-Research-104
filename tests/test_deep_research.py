@@ -10,18 +10,16 @@ serialization.
 from __future__ import annotations
 
 import pytest
-
-from src.models.base_model import ModelResponse
 from src.pipeline.deep_research import (
     DeepResearchPipeline,
     ResearchIteration,
     ResearchReport,
 )
 from src.search.search_aggregator import AggregatedResult
-from src.search.web_search import SearchResult, SearchResponse
-
+from src.search.web_search import SearchResponse, SearchResult
 
 # ── ResearchIteration dataclass ───────────────────────────────────────────────
+
 
 class TestResearchIteration:
     def test_defaults(self) -> None:
@@ -50,6 +48,7 @@ class TestResearchIteration:
 
 # ── ResearchReport dataclass ──────────────────────────────────────────────────
 
+
 class TestResearchReport:
     def test_to_markdown_includes_question(self) -> None:
         r = ResearchReport(
@@ -65,8 +64,10 @@ class TestResearchReport:
 
     def test_to_markdown_includes_gaps(self) -> None:
         r = ResearchReport(
-            question="q", answer="a",
-            confidence="low", synthesis_model="stub",
+            question="q",
+            answer="a",
+            confidence="low",
+            synthesis_model="stub",
             gaps_remaining=["missing-1", "missing-2"],
         )
         md = r.to_markdown()
@@ -75,10 +76,14 @@ class TestResearchReport:
 
     def test_to_json_roundtrips(self) -> None:
         import json
+
         r = ResearchReport(
-            question="q", answer="a",
-            confidence="medium", synthesis_model="stub",
-            total_tokens_used=100, total_cost_usd=0.01,
+            question="q",
+            answer="a",
+            confidence="medium",
+            synthesis_model="stub",
+            total_tokens_used=100,
+            total_cost_usd=0.01,
         )
         s = r.to_json()
         d = json.loads(s)
@@ -90,19 +95,25 @@ class TestResearchReport:
 
     def test_source_urls_property(self) -> None:
         result = SearchResult(
-            title="t", url="https://example.com/a",
-            snippet="s", position=1, provider="ddg",
+            title="t",
+            url="https://example.com/a",
+            snippet="s",
+            position=1,
+            provider="ddg",
         )
         agg = AggregatedResult(search_result=result, relevance_score=0.5)
         r = ResearchReport(
-            question="q", answer="a",
-            confidence="medium", synthesis_model="stub",
+            question="q",
+            answer="a",
+            confidence="medium",
+            synthesis_model="stub",
             sources=[agg],
         )
         assert r.source_urls == ["https://example.com/a"]
 
 
 # ── Pipeline with StubModel + mocked search ─────────────────────────────────
+
 
 class TestPipelineEndToEnd:
     """Run the full pipeline against a stub model + a mocked search engine."""
@@ -116,7 +127,8 @@ class TestPipelineEndToEnd:
             title="Fusion breakthrough",
             url="https://example.com/fusion-2026",
             snippet="Major fusion milestone achieved in 2026.",
-            position=1, provider="duckduckgo",
+            position=1,
+            provider="duckduckgo",
         )
         canned_response = SearchResponse(
             query="fusion breakthroughs 2026",

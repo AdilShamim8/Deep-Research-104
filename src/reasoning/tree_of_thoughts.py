@@ -20,6 +20,7 @@ import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
+
 from loguru import logger
 
 from src.models.base_model import BaseModel, GenerationConfig
@@ -33,6 +34,7 @@ class SearchStrategy(Enum):
 
 # ── Node ──────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ThoughtNode:
     """
@@ -41,17 +43,19 @@ class ThoughtNode:
     Each node represents one reasoning step.
     Children are candidate next steps.
     """
-    thought: str                                 # This step's reasoning
-    depth: int = 0                               # Distance from root
-    score: float = 0.0                           # Evaluator score
+
+    thought: str  # This step's reasoning
+    depth: int = 0  # Distance from root
+    score: float = 0.0  # Evaluator score
     parent: Optional["ThoughtNode"] = None
     children: list["ThoughtNode"] = field(default_factory=list)
-    is_terminal: bool = False                    # True if this is a final answer
+    is_terminal: bool = False  # True if this is a final answer
     node_id: str = ""
 
     def __post_init__(self):
         if not self.node_id:
             import uuid
+
             self.node_id = str(uuid.uuid4())[:8]
 
     @property
@@ -59,15 +63,12 @@ class ThoughtNode:
         """Return all nodes from root to this node."""
         if self.parent is None:
             return [self]
-        return self.parent.path + [self]
+        return [*self.parent.path, self]
 
     @property
     def path_text(self) -> str:
         """Full reasoning path as text."""
-        return "\n\n".join(
-            f"Step {i+1}: {node.thought}"
-            for i, node in enumerate(self.path)
-        )
+        return "\n\n".join(f"Step {i + 1}: {node.thought}" for i, node in enumerate(self.path))
 
     @property
     def cumulative_score(self) -> float:
@@ -144,9 +145,11 @@ Final answer (be concise and direct):
 
 # ── Tree of Thoughts Engine ───────────────────────────────────────────────────
 
+
 @dataclass
 class ToTResult:
     """Result from Tree of Thoughts search."""
+
     answer: str
     best_path: list[ThoughtNode]
     best_score: float
@@ -189,8 +192,8 @@ class TreeOfThoughts:
     async def solve(
         self,
         problem: str,
-        context: Optional[str] = None,
-        config: Optional[GenerationConfig] = None,
+        context: str | None = None,
+        config: GenerationConfig | None = None,
     ) -> ToTResult:
         """
         Run Tree of Thoughts search to solve a problem.
@@ -220,9 +223,7 @@ class TreeOfThoughts:
         )
 
         if self.search_strategy == SearchStrategy.BEAM:
-            terminal_nodes = await self._beam_search(
-                root, problem, context, config
-            )
+            terminal_nodes = await self._beam_search(root, problem, context, config)
         elif self.search_strategy == SearchStrategy.BFS:
             terminal_nodes = await self._bfs(root, problem, context, config)
         else:
@@ -236,9 +237,7 @@ class TreeOfThoughts:
         best_node = max(terminal_nodes, key=lambda n: n.cumulative_score)
 
         # Extract final answer
-        answer = await self._extract_answer(
-            problem, best_node.path_text, config
-        )
+        answer = await self._extract_answer(problem, best_node.path_text, config)
 
         logger.info(
             f"ToT complete | nodes_explored={self._nodes_explored} | "
@@ -261,7 +260,7 @@ class TreeOfThoughts:
         self,
         root: ThoughtNode,
         problem: str,
-        context: Optional[str],
+        context: str | None,
         config: GenerationConfig,
     ) -> list[ThoughtNode]:
         """
@@ -272,16 +271,11 @@ class TreeOfThoughts:
         terminal_nodes: list[ThoughtNode] = []
 
         for depth in range(1, self.max_depth + 1):
-            logger.debug(
-                f"Beam search depth={depth} | beam_size={len(beam)}"
-            )
+            logger.debug(f"Beam search depth={depth} | beam_size={len(beam)}")
 
             # Expand all nodes in current beam
             all_children: list[ThoughtNode] = []
-            expand_tasks = [
-                self._expand_node(node, problem, context, config)
-                for node in beam
-            ]
+            expand_tasks = [self._expand_node(node, problem, context, config) for node in beam]
             results = await asyncio.gather(*expand_tasks)
             for children in results:
                 all_children.extend(children)
@@ -290,14 +284,11 @@ class TreeOfThoughts:
                 break
 
             # Check for terminal nodes
-            terminal_tasks = [
-                self._check_terminal(node, problem, config)
-                for node in all_children
-            ]
+            terminal_tasks = [self._check_terminal(node, problem, config) for node in all_children]
             terminal_flags = await asyncio.gather(*terminal_tasks)
 
             next_beam = []
-            for node, is_terminal in zip(all_children, terminal_flags):
+            for node, is_terminal in zip(all_children, terminal_flags, strict=False):
                 if is_terminal:
                     node.is_terminal = True
                     terminal_nodes.append(node)
@@ -308,11 +299,7 @@ class TreeOfThoughts:
                 break
 
             # Prune to beam_width
-            beam = sorted(
-                next_beam,
-                key=lambda n: n.score,
-                reverse=True
-            )[:self.beam_width]
+            beam = sorted(next_beam, key=lambda n: n.score, reverse=True)[: self.beam_width]
 
         # If no terminal nodes, use deepest beam nodes
         if not terminal_nodes:
@@ -324,11 +311,12 @@ class TreeOfThoughts:
         self,
         root: ThoughtNode,
         problem: str,
-        context: Optional[str],
+        context: str | None,
         config: GenerationConfig,
     ) -> list[ThoughtNode]:
         """BFS: explore all nodes level by level."""
         from collections import deque
+
         queue: deque[ThoughtNode] = deque([root])
         terminal_nodes: list[ThoughtNode] = []
 
@@ -341,9 +329,7 @@ class TreeOfThoughts:
 
             children = await self._expand_node(node, problem, context, config)
             for child in children:
-                is_terminal = await self._check_terminal(
-                    child, problem, config
-                )
+                is_terminal = await self._check_terminal(child, problem, config)
                 if is_terminal:
                     child.is_terminal = True
                     terminal_nodes.append(child)
@@ -356,9 +342,9 @@ class TreeOfThoughts:
         self,
         root: ThoughtNode,
         problem: str,
-        context: Optional[str],
+        context: str | None,
         config: GenerationConfig,
-        _terminal_nodes: Optional[list] = None,
+        _terminal_nodes: list | None = None,
     ) -> list[ThoughtNode]:
         """DFS: go deep on most promising branch first."""
         if _terminal_nodes is None:
@@ -378,9 +364,7 @@ class TreeOfThoughts:
                 child.is_terminal = True
                 _terminal_nodes.append(child)
             else:
-                await self._dfs(
-                    child, problem, context, config, _terminal_nodes
-                )
+                await self._dfs(child, problem, context, config, _terminal_nodes)
 
         return _terminal_nodes
 
@@ -390,7 +374,7 @@ class TreeOfThoughts:
         self,
         node: ThoughtNode,
         problem: str,
-        context: Optional[str],
+        context: str | None,
         config: GenerationConfig,
     ) -> list[ThoughtNode]:
         """Generate candidate next thoughts for a node."""
@@ -425,20 +409,18 @@ class TreeOfThoughts:
 
         if not thoughts:
             logger.warning(
-                f"No thoughts parsed at depth {node.depth}. "
-                f"Raw: {response.content[:200]}"
+                f"No thoughts parsed at depth {node.depth}. Raw: {response.content[:200]}"
             )
             return []
 
         # Score all thoughts concurrently
         score_tasks = [
-            self._score_thought(node, thought, problem, gen_config)
-            for thought in thoughts
+            self._score_thought(node, thought, problem, gen_config) for thought in thoughts
         ]
         scores = await asyncio.gather(*score_tasks, return_exceptions=True)
 
         children = []
-        for thought, score in zip(thoughts, scores):
+        for thought, score in zip(thoughts, scores, strict=False):
             if isinstance(score, Exception):
                 score = 0.5  # Default on failure
             child = ThoughtNode(
@@ -481,7 +463,8 @@ class TreeOfThoughts:
             score_text = response.content.strip()
             # Extract first float found
             import re
-            match = re.search(r'(\d+\.?\d*)', score_text)
+
+            match = re.search(r"(\d+\.?\d*)", score_text)
             if match:
                 score = float(match.group(1))
                 return max(0.0, min(1.0, score))
@@ -540,5 +523,6 @@ class TreeOfThoughts:
     def _parse_thoughts(text: str) -> list[str]:
         """Parse STEP: markers from generated text."""
         import re
-        steps = re.findall(r'STEP:\s*(.+?)(?=STEP:|$)', text, re.DOTALL)
+
+        steps = re.findall(r"STEP:\s*(.+?)(?=STEP:|$)", text, re.DOTALL)
         return [s.strip() for s in steps if s.strip()]

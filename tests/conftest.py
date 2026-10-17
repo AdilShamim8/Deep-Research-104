@@ -14,8 +14,7 @@ Provides:
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
 
 import pytest
 
@@ -57,7 +56,7 @@ class StubModel(BaseModel):
     async def generate(
         self,
         messages: list[dict],
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> ModelResponse:
         self.call_count += 1
         # Approximate token usage so cost tracking tests pass
@@ -75,7 +74,7 @@ class StubModel(BaseModel):
     async def stream_generate(
         self,
         messages: list[dict],
-        config: Optional[GenerationConfig] = None,
+        config: GenerationConfig | None = None,
     ) -> AsyncGenerator[str, None]:
         # Yield a few tokens from the canned content
         for word in self.canned_content.split():
@@ -95,7 +94,7 @@ def mock_model() -> StubModel:
 
 # ── Sample search response ──────────────────────────────────────────────────
 
-from src.search.web_search import SearchResult, SearchResponse
+from src.search.web_search import SearchResponse, SearchResult
 
 
 @pytest.fixture
@@ -134,8 +133,10 @@ async def tmp_cache() -> LayeredCache:
     cache = LayeredCache(default_ttl=60, lru_capacity=8)
     # Stub disk + Redis so tests are hermetic
     cache._get_disk_cache = lambda: None  # type: ignore
+
     async def _no_redis() -> None:
         return None
+
     cache._get_redis = _no_redis  # type: ignore
     yield cache
     await cache.close()

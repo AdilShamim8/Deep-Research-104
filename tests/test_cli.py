@@ -9,9 +9,8 @@ via env config.
 from __future__ import annotations
 
 import pytest
-from typer.testing import CliRunner
-
 from src.cli.app import app
+from typer.testing import CliRunner
 
 
 @pytest.fixture
@@ -20,6 +19,7 @@ def runner() -> CliRunner:
 
 
 # ── version ────────────────────────────────────────────────────────────────────
+
 
 class TestVersionCommand:
     def test_version_prints_metadata(self, runner: CliRunner) -> None:
@@ -32,6 +32,7 @@ class TestVersionCommand:
 
 # ── providers ─────────────────────────────────────────────────────────────────
 
+
 class TestProvidersCommand:
     def test_providers_lists_known_providers(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["providers"])
@@ -42,6 +43,7 @@ class TestProvidersCommand:
 
 # ── search ─────────────────────────────────────────────────────────────────────
 
+
 class TestSearchCommand:
     def test_search_help_shows_options(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["search", "--help"])
@@ -51,6 +53,7 @@ class TestSearchCommand:
 
 
 # ── ask ───────────────────────────────────────────────────────────────────────
+
 
 class TestAskCommand:
     def test_ask_help_shows_options(self, runner: CliRunner) -> None:
@@ -64,6 +67,7 @@ class TestAskCommand:
 
 # ── cot ───────────────────────────────────────────────────────────────────────
 
+
 class TestCotCommand:
     def test_cot_help_shows_modes(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["cot", "--help"])
@@ -74,6 +78,7 @@ class TestCotCommand:
 
 
 # ── tot ───────────────────────────────────────────────────────────────────────
+
 
 class TestTotCommand:
     def test_tot_help_shows_strategies(self, runner: CliRunner) -> None:
@@ -86,6 +91,7 @@ class TestTotCommand:
 
 # ── serve ─────────────────────────────────────────────────────────────────────
 
+
 class TestServeCommand:
     def test_serve_help_shows_options(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["serve", "--help"])
@@ -97,6 +103,7 @@ class TestServeCommand:
 
 
 # ── Top-level help ────────────────────────────────────────────────────────────
+
 
 class TestTopLevelHelp:
     def test_no_args_prints_help(self, runner: CliRunner) -> None:
