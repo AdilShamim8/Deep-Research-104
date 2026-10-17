@@ -12,6 +12,8 @@ Search strategies:
   - BFS (breadth-first): explore all nodes at depth D before D+1
   - DFS (depth-first):   go deep on most promising path first
   - Beam search:         keep top-K candidates at each depth
+
+Date tag: 17 October 2026.
 """
 
 import asyncio

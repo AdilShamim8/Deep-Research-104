@@ -7,6 +7,8 @@ Implements:
   - Bradley-Terry preference model from human feedback pairs
 
 Both use a pretrained LLM backbone with a value head added.
+
+Date tag: 17 October 2026.
 """
 
 import json

@@ -6,6 +6,8 @@ Supports:
 - Few-shot CoT (with examples)
 - Self-consistency CoT (majority vote over multiple samples)
 - Structured CoT (with explicit reasoning format)
+
+Date tag: 17 October 2026.
 """
 
 import asyncio

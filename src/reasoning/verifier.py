@@ -9,6 +9,8 @@ Implements:
   - Best-of-N with verifier: generate N, pick highest-scoring
 
 Based on: Let's Verify Step by Step (Lightman et al., 2023)
+
+Date tag: 17 October 2026.
 """
 
 import re

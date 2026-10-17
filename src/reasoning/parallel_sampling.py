@@ -9,6 +9,8 @@ Strategies:
   - best_of_n:      Score each sample, return highest score
   - diverse_beam:   Maximize quality AND diversity
   - tournament:     Pairwise comparison to find winner
+
+Date tag: 17 October 2026.
 """
 
 import asyncio

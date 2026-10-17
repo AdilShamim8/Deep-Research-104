@@ -15,6 +15,8 @@ Reference:
   - "Scaling LLM Test-Time Compute" (Snell et al., 2024)
   - OpenAI o1 system card
   - DeepSeek-R1 paper
+
+Date tag: 17 October 2026.
 """
 
 import asyncio

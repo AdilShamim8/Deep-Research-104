@@ -7,6 +7,8 @@ Techniques implemented:
   2. Stepwise decomposition  - Break task into sub-tasks, solve sequentially
   3. Debate                  - Model argues for/against then synthesizes
   4. Reflection loop         - Detect and correct own errors
+
+Date tag: 17 October 2026.
 """
 
 import asyncio
