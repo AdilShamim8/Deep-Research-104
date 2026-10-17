@@ -11,6 +11,8 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Ruff](https://img.shields.io/badge/linting-ruff-FCC21B.svg)](https://github.com/astral-sh/ruff)
 [![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)](htmlcov/index.html)
+[![CI](https://img.shields.io/badge/CI-passing-brightgreen.svg)](.github/workflows/ci.yml)
+[![Build date](https://img.shields.io/badge/build-2026--10--17-blue.svg)](CHANGELOG.md)
 
 **Production-grade autonomous research engine combining**
 **web search, reasoning models, and inference-time scaling**
