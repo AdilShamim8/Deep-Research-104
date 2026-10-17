@@ -1,4 +1,38 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Deep Research 104 — production docker-compose stack
+# Build target date: 17 October 2026
+# ──────────────────────────────────────────────────────────────────────────────
+# Services:
+#   api          — FastAPI app (uvicorn, 4 workers)
+#   redis        — shared cache + rate-limit backend
+#   ollama       — local LLM (DeepSeek-R1) — opt-in via --profile local
+#   model-puller — one-shot Ollama model puller — opt-in via --profile local
+#   prometheus   — metrics scraper — opt-in via --profile monitoring
+#   grafana      — dashboards — opt-in via --profile monitoring
+# ──────────────────────────────────────────────────────────────────────────────
+
 version: "3.9"
+
+x-app-env: &app-env
+  APP_ENV: ${APP_ENV:-production}
+  APP_NAME: ${APP_NAME:-deep-research-104}
+  APP_PORT: 8000
+  APP_WORKERS: 4
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  REDIS_URL: redis://redis:6379/0
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_REASONING_MODEL: ${OPENAI_REASONING_MODEL:-o3-mini}
+  DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+  SERPAPI_KEY: ${SERPAPI_KEY:-}
+  BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
+  BING_SEARCH_API_KEY: ${BING_SEARCH_API_KEY:-}
+  SEARCH_PROVIDER: ${SEARCH_PROVIDER:-duckduckgo}
+  JWT_SECRET: ${JWT_SECRET:-}
+  ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://deepresearch.space-z.ai}
+  RATE_LIMIT_RPM: ${RATE_LIMIT_RPM:-60}
+  RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
+  OLLAMA_BASE_URL: http://ollama:11434
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-deepseek-r1:7b}
 
 services:
 
@@ -7,18 +41,11 @@ services:
     build:
       context: .
       target: production
+    image: deep-research-104:1.0.0
     ports:
-      - "8000:8000"
+      - "${APP_PORT:-8000}:8000"
     environment:
-      - APP_ENV=production
-      - REDIS_URL=redis://redis:6379/0
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-      - SERPAPI_KEY=${SERPAPI_KEY}
-      - BRAVE_SEARCH_API_KEY=${BRAVE_SEARCH_API_KEY}
-      - SEARCH_PROVIDER=${SEARCH_PROVIDER:-duckduckgo}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - OLLAMA_BASE_URL=http://ollama:11434
+      <<: *app-env
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
@@ -29,16 +56,31 @@ services:
     restart: unless-stopped
     networks:
       - deep_research_net
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: 2G
+          cpus: "2.0"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "10"
 
   # ── Redis Cache ────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     command: >
@@ -47,15 +89,29 @@ services:
       --maxmemory-policy allkeys-lru
       --save 900 1
       --save 300 10
+      --save 60 10000
+      --appendonly yes
+      --appendfsync everysec
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
+    restart: unless-stopped
     networks:
       - deep_research_net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
-  # ── Ollama (Local LLM) ─────────────────────────────────────────────────────
+  # ── Ollama (Local LLM) — opt-in via --profile local ────────────────────────
   ollama:
     image: ollama/ollama:latest
     ports:
@@ -65,17 +121,21 @@ services:
     environment:
       - OLLAMA_KEEP_ALIVE=24h
       - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=2
     networks:
       - deep_research_net
+    restart: unless-stopped
     deploy:
       resources:
+        limits:
+          memory: 16G
         reservations:
           devices:
             - driver: nvidia
               count: all
               capabilities: [gpu]
     profiles:
-      - local  # Only start with: docker-compose --profile local up
+      - local
 
   # ── Model puller (one-shot setup) ─────────────────────────────────────────
   model-puller:
@@ -85,47 +145,54 @@ services:
     command: >
       sh -c "
         sleep 5 &&
-        curl -X POST http://ollama:11434/api/pull
+        curl -sS -X POST http://ollama:11434/api/pull
         -d '{\"name\": \"deepseek-r1:7b\"}'
       "
     networks:
       - deep_research_net
+    restart: "no"
     profiles:
       - local
 
-  # ── Prometheus ────────────────────────────────────────────────────────────
+  # ── Prometheus — opt-in via --profile monitoring ──────────────────────────
   prometheus:
     image: prom/prometheus:latest
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.retention.time=15d"
+      - "--storage.tsdb.retention.size=10GB"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
     networks:
       - deep_research_net
+    restart: unless-stopped
     profiles:
       - monitoring
 
-  # ── Grafana ────────────────────────────────────────────────────────────────
+  # ── Grafana — opt-in via --profile monitoring ─────────────────────────────
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "3000:3000"
+      - "${GRAFANA_PORT:-3000}:3000"
     volumes:
       - grafana_data:/var/lib/grafana
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://deepresearch.space-z.ai/grafana
     depends_on:
       - prometheus
     networks:
       - deep_research_net
+    restart: unless-stopped
     profiles:
       - monitoring
-
 
 volumes:
   redis_data:
@@ -133,7 +200,7 @@ volumes:
   prometheus_data:
   grafana_data:
 
-
 networks:
   deep_research_net:
     driver: bridge
+    name: deep_research_net
