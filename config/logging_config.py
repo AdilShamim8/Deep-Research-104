@@ -36,10 +36,10 @@ trace_id_ctx: ContextVar[str] = ContextVar("trace_id", default="")
 # ── JSON formatter ────────────────────────────────────────────────────────────
 
 
-def serialize_record(record: dict) -> str:
-    """Serialize a loguru record into a single-line JSON string.
+def _build_record_dict(record: dict) -> dict[str, Any]:
+    """Build a log-safe dict from a loguru record.
 
-    Includes request_id/user_id/trace_id from contextvars when present,
+    Includes request_id / user_id / trace_id from contextvars when set,
     so downstream log aggregators can correlate across services.
     """
     subset: dict[str, Any] = {
@@ -53,7 +53,6 @@ def serialize_record(record: dict) -> str:
         "service": settings.app_name,
     }
 
-    # Pull correlation IDs from contextvars (no-op if not set)
     rid = request_id_ctx.get()
     if rid:
         subset["request_id"] = rid
@@ -64,17 +63,15 @@ def serialize_record(record: dict) -> str:
     if tid:
         subset["trace_id"] = tid
 
-    # Extra fields (passed via logger.bind(...))
     if record["extra"]:
         for k, v in record["extra"].items():
             if k not in subset:
                 subset[k] = v
 
-    # Exception traceback (stringified, structured)
     if record["exception"]:
         subset["exception"] = _format_exception(record["exception"])
 
-    return json.dumps(subset, default=str, ensure_ascii=False)
+    return subset
 
 
 def _format_exception(exc) -> str:
@@ -87,11 +84,30 @@ def _format_exception(exc) -> str:
         return str(exc)
 
 
+def serialize_record(record: dict) -> str:
+    """Serialize a loguru record into a single-line JSON string.
+
+    Loguru treats the return value of a callable `format` as a format
+    string and interpolates {placeholders} from the record. Since our
+    JSON output contains literal { and }, we escape them as {{ }} so
+    loguru's interpolation produces the literal braces we want.
+    """
+    json_str = json.dumps(_build_record_dict(record), default=str, ensure_ascii=False)
+    # Escape braces so loguru's format_map() doesn't try to interpolate
+    # our JSON keys as placeholders.
+    return json_str.replace("{", "{{").replace("}", "}}")
+
+
 # ── Pretty dev formatter ─────────────────────────────────────────────────────
 
 
 def pretty_format(record: dict) -> str:
-    """Colored multi-field format for interactive development."""
+    """Colored multi-field format for interactive development.
+
+    Returns a loguru format string (with placeholders that loguru
+    resolves from the record). The colorize layer needs the
+    placeholders to apply color tags.
+    """
     rid = request_id_ctx.get()
     rid_part = f" <dim>[{rid}]</dim>" if rid else ""
     return (
@@ -116,11 +132,13 @@ def setup_logging() -> None:
 
     if settings.app_env == "production":
         # ── stdout: JSON for log aggregators ───────────────────────────────
+        # serialize_record returns the final JSON string; loguru writes
+        # it as-is because we set the format to a callable.
         logger.add(
             sys.stdout,
             format=serialize_record,
             level=settings.log_level,
-            serialize=False,
+            colorize=False,
             backtrace=False,
             diagnose=False,  # Don't leak variable values in prod
             enqueue=True,  # Thread-safe, non-blocking
@@ -131,25 +149,27 @@ def setup_logging() -> None:
         os.makedirs("logs", exist_ok=True)
         logger.add(
             "logs/app_{time}.log",
+            format=serialize_record,
             rotation="100 MB",
             retention="30 days",
             compression="gz",
             level="WARNING",
-            serialize=True,
             enqueue=True,
             backtrace=False,
             diagnose=False,
+            catch=True,
         )
 
         # ── File: errors only (for fast triage) ────────────────────────────
         logger.add(
             "logs/errors_{time}.log",
+            format=serialize_record,
             rotation="50 MB",
             retention="90 days",
             compression="gz",
             level="ERROR",
-            serialize=True,
             enqueue=True,
+            catch=True,
         )
 
     elif settings.app_env == "staging":
@@ -158,20 +178,22 @@ def setup_logging() -> None:
             sys.stdout,
             format=serialize_record,
             level="DEBUG",
-            serialize=False,
+            colorize=False,
             backtrace=True,
             diagnose=True,
             enqueue=True,
+            catch=True,
         )
         os.makedirs("logs", exist_ok=True)
         logger.add(
             "logs/app_{time}.log",
+            format=serialize_record,
             rotation="50 MB",
             retention="14 days",
             compression="gz",
             level="INFO",
-            serialize=True,
             enqueue=True,
+            catch=True,
         )
 
     else:
@@ -184,15 +206,17 @@ def setup_logging() -> None:
             backtrace=True,
             diagnose=True,
         )
-        # Local file mirror, no rotation needed
+        # Local file mirror as JSON. Use serialize_record directly (not
+        # loguru's built-in serialize=True) so we get the same shape across
+        # environments, including the request_id contextvar field.
         os.makedirs("logs", exist_ok=True)
         logger.add(
             "logs/dev.log",
             format=serialize_record,
             level="DEBUG",
-            serialize=True,
             rotation="20 MB",
             retention="7 days",
+            catch=True,
         )
 
 
