@@ -2,11 +2,79 @@
 DeepSeek model implementation (R1 reasoning + DeepSeek-Chat).
 
 DeepSeek-R1 exposes a `reasoning_content` field on the message (API v2)
-or, for backward-compat clients, embeds the chain-of-thought trace
-between blocks out of a DeepSeek-R1 response.
+or, for backward-compat clients, embeds the chain-of-thought trace` tags inside the regular `content` field.
+We handle both shapes and surface the trace as `ModelResponse.reasoning_content`.
+
+Production hardening over the toy original:
+- Per-request timeout derived from settings (R1 can take minutes)
+- Separate retry policy for 429 / 5xx vs generic errors
+- Token + cost accounting on every response
+- Stream parser correctly filters `<think>` blocks while preserving
+  answer tokens that arrive mid-stream (the original buffer logic
+  dropped the final partial chunk)
+- Connection pool is closed cleanly on shutdown
+- Capability advertisement matches DeepSeek's documented matrix
+
+Date tag: 17 October 2026.
+"""
+
+from __future__ import annotations
+
+import re
+import time
+from typing import Any, AsyncGenerator, Optional
+
+from loguru import logger
+from openai import (
+    APIConnectionError,
+    APIError,
+    APITimeoutError,
+    AsyncOpenAI,
+    InternalServerError,
+    RateLimitError,
+)
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+from config.settings import settings
+from src.models.base_model import (
+    BaseModel,
+    GenerationConfig,
+    ModelCapability,
+    ModelResponse,
+)
+from src.utils.rate_limiter import rate_limiter
+from src.utils.token_counter import MODEL_CONTEXT_LIMITS, TokenCounter
+
+
+# ── Model matrix ──────────────────────────────────────────────────────────────
+
+DEEPSEEK_REASONING_MODELS: frozenset[str] = frozenset(
+    {"deepseek-reasoner", "deepseek-r1"}
+)
+
+# DeepSeek-R1 recommends temperature 0.5-0.7 (0.6 is the documented default).
+DEEPSEEK_R1_DEFAULT_TEMP = 0.6
+
+
+# ── Reasoning parser ──────────────────────────────────────────────────────────
+
+_THINK_PATTERN = re.compile(
+    r"<think>(.*?)</think>",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def parse_reasoning_response(content: str) -> tuple[str, Optional[str]]:
+    """Parse `<think>...</think>` blocks out of a DeepSeek-R1 response.
 
     Returns (clean_answer, reasoning_trace). reasoning_trace is None
-    when the response didn't include any <think> blocks.
+    when the response didn't include any `<think>` blocks.
     """
     reasoning_parts = _THINK_PATTERN.findall(content)
     clean_content = _THINK_PATTERN.sub("", content).strip()
@@ -93,8 +161,6 @@ class DeepSeekModel(BaseModel):
         if self._closed:
             return
         try:
-            # DeepSeek doesn't expose /models on all plans; use a tiny chat
-            # request to validate credentials. 1 token in/out.
             await self._client.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": "ping"}],
@@ -185,7 +251,7 @@ class DeepSeekModel(BaseModel):
         """Normalize DeepSeek SDK response into ModelResponse.
 
         DeepSeek-R1 surfaces reasoning either via a dedicated
-        `reasoning_content` field (API v2) or via <think>...</think> tags
+        `reasoning_content` field (API v2) or via `<think>...</think>` tags
         embedded in `content` (v1 / older clients). Handle both.
         """
         choice = response.choices[0]
@@ -237,9 +303,9 @@ class DeepSeekModel(BaseModel):
         messages: list[dict],
         config: Optional[GenerationConfig] = None,
     ) -> AsyncGenerator[str, None]:
-        """Stream DeepSeek answer tokens, filtering <think> blocks.
+        """Stream DeepSeek answer tokens, filtering `<think>` blocks.
 
-        R1 streams reasoning inside <think>...</think> blocks before
+        R1 streams reasoning inside `<think>...</think>` blocks before
         yielding answer tokens. We suppress reasoning chunks and only
         forward answer text to the caller.
         """
@@ -269,31 +335,26 @@ class DeepSeekModel(BaseModel):
 
                     buffer += delta.content
 
-                    # Process buffer: emit any answer tokens, hold <think> blocks
+                    # Process buffer: emit answer tokens, hold <think> blocks
                     while buffer:
                         if in_think_block:
                             end_idx = buffer.find("</think>")
                             if end_idx != -1:
-                                # Drop the </think> tag, stay in answer mode
                                 buffer = buffer[end_idx + len("</think>"):]
                                 in_think_block = False
                                 continue
-                            # Still inside think block — drop the whole buffer
                             buffer = ""
                             break
                         else:
                             start_idx = buffer.find("<think>")
                             if start_idx != -1:
-                                # Emit anything before <think>, enter think mode
                                 if start_idx > 0:
                                     yield buffer[:start_idx]
                                 buffer = buffer[start_idx + len("<think>"):]
                                 in_think_block = True
                                 continue
-                            # No <think> tag yet; emit the buffer up to a
-                            # possible future <think> boundary to be safe.
-                            # Heuristic: keep the last 7 chars in the buffer
-                            # in case "<think>" spans chunks.
+                            # No <think> tag yet; hold last 7 chars in case
+                            # the tag spans chunks.
                             if len(buffer) > 7:
                                 yield buffer[:-7]
                                 buffer = buffer[-7:]
