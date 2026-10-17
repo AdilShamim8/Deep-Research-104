@@ -16,7 +16,7 @@ def make_research_model(answer: str = "Fusion energy is advancing."):
         if messages:
             last_content = messages[-1].get("content", "")
             if "numbered" in last_content.lower() or "queries" in last_content.lower():
-                content = "1. fusion energy 2024\n2. nuclear fusion breakthrough\n3. ITER progress"
+                content = "1. fusion energy 2026\n2. nuclear fusion breakthrough\n3. ITER progress"
             elif "gaps" in last_content.lower() or "gap" in last_content.lower():
                 content = (
                     "<covered>\n- Basic facts\n</covered>\n"
@@ -169,7 +169,7 @@ class TestMetaCoT:
 
         text = (
             "<think>I need to search for this.</think>\n"
-            "<search>fusion energy 2024</search>\n"
+            "<search>fusion energy 2026</search>\n"
             "<think>Based on results...</think>\n"
             "<answer>Fusion is advancing.</answer>"
         )
@@ -178,7 +178,7 @@ class TestMetaCoT:
         assert len(actions) == 4
         assert actions[0].action_type == "think"
         assert actions[1].action_type == "search"
-        assert actions[1].content == "fusion energy 2024"
+        assert actions[1].content == "fusion energy 2026"
         assert actions[3].action_type == "answer"
 
     async def test_meta_cot_runs_to_answer(self):
