@@ -1,0 +1,128 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# MkDocs configuration — builds the docs site at docs.deepresearch.space-z.ai
+# Install: pip install mkdocs mkdocs-material
+# Run:    mkdocs serve  (or  make docs)
+# Last verified: 17 October 2026
+# ──────────────────────────────────────────────────────────────────────────────
+
+site_name: Deep Research 104
+site_description: >-
+  Production-grade autonomous research engine combining web search,
+  reasoning models (OpenAI o-series, DeepSeek-R1), and inference-time
+  scaling techniques.
+site_url: https://docs.deepresearch.space-z.ai
+repo_url: https://github.com/AdilShamim8/Deep-Research-104
+repo_name: AdilShamim8/Deep-Research-104
+edit_uri: edit/main/docs/
+
+# ── Theme ─────────────────────────────────────────────────────────────────────
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+
+# ── Markdown extensions ──────────────────────────────────────────────────────
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# ── Plugins ───────────────────────────────────────────────────────────────────
+plugins:
+  - search:
+      lang: en
+  - tags
+
+# ── Navigation ───────────────────────────────────────────────────────────────
+nav:
+  - Home: index.md
+  - Architecture: ARCHITECTURE.md
+  - Quick start:
+      - Local dev: quickstart/local-dev.md
+      - Docker: quickstart/docker.md
+      - Kubernetes: quickstart/kubernetes.md
+  - Guides:
+      - Configuration: guides/configuration.md
+      - Deployment: DEPLOYMENT.md
+      - Monitoring: guides/monitoring.md
+      - Security: SECURITY.md
+  - Reference:
+      - CLI: reference/cli.md
+      - REST API: reference/api.md
+      - Schemas: reference/schemas.md
+  - Contributing:
+      - Guide: CONTRIBUTING.md
+      - Changelog: CHANGELOG.md
+  - Tutorial: tutorial.md
+
+# ── Extra ─────────────────────────────────────────────────────────────────────
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/AdilShamim8/Deep-Research-104
+  version:
+    provider: mike
+  generator: false
+
+extra_css:
+  - assets/styles.css
+
+copyright: >-
+  Copyright &copy; 2026 Adil Shamim — MIT License
