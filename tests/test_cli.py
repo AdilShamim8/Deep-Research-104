@@ -15,7 +15,8 @@ from typer.testing import CliRunner
 
 @pytest.fixture
 def runner() -> CliRunner:
-    return CliRunner(mix_stderr=False)
+    # Click 8.1+ removed the `mix_stderr` kwarg — just use the default.
+    return CliRunner()
 
 
 # ── version ────────────────────────────────────────────────────────────────────
