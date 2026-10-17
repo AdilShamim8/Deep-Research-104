@@ -1942,6 +1942,31 @@ deep_research/                          ← Project root
 ├── .gitignore
 ├── Dockerfile                          ← Multi-stage: production + development
 ├── docker-compose.yml                  ← Full stack: API, Redis, Ollama, Grafana
+├── pyproject.toml                     ← PEP 517 build config + tool settings
+├── requirements-dev.txt                ← Dev deps (pytest, ruff, mypy, pre-commit)
+├── Makefile                            ← Task runner: setup/run/lint/test/security
+├── .dockerignore                       ← Slims build context, blocks secret leaks
+├── .editorconfig                       ← Cross-editor style consistency
+├── .pre-commit-config.yaml             ← ruff+black+mypy+pip-audit+hadolint hooks
+├── CONTRIBUTING.md                     ← Dev workflow, code style, security policy
+├── SECURITY.md                         ← Vulnerability reporting + hardening checklist
+├── CHANGELOG.md                        ← Keep a Changelog 1.1.0 + SemVer 2.0
+├── ARCHITECTURE.md                     ← Module map, design choices, failure modes
+├── DEPLOYMENT.md                       ← Quick deploy, VPS, K8s, TLS, alerts
+├── .github/                            ← CI + release + codeql + dependabot
+│   ├── workflows/ci.yml                ← Lint, test matrix, docker build, security
+│   ├── workflows/release.yml           ← Tag-triggered GHCR + GitHub Release
+│   ├── workflows/codeql.yml            ← Weekly semantic security scan
+│   ├── dependabot.yml                  ← Weekly pip + monthly actions/docker updates
+│   ├── CODEOWNERS                      ← Auto-review routing to @AdilShamim8
+│   ├── PULL_REQUEST_TEMPLATE.md        ← Structured PR checklist
+│   └── ISSUE_TEMPLATE/                 ← Bug + feature templates, no blank issues
+├── examples/                           ← Runnable example scripts
+│   ├── README.md
+│   ├── basic_research.py               ← Minimal pipeline run
+│   ├── streaming_research.py            ← SSE client
+│   ├── cot_reasoning.py                 ← CoT + self-consistency
+│   └── web_search.py                    ← Fallback search engine demo
 │
 ├── config/                             ← Application configuration
 │   ├── __init__.py
