@@ -1,0 +1,50 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# EditorConfig — keep file formatting consistent across editors / IDEs.
+# Reference: https://editorconfig.org/
+# Last verified: 17 October 2026
+# ──────────────────────────────────────────────────────────────────────────────
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+max_line_length = 100
+
+# ── Python ────────────────────────────────────────────────────────────────────
+[*.py]
+indent_size = 4
+max_line_length = 100
+
+# ── Web / config ──────────────────────────────────────────────────────────────
+[*.{js,ts,jsx,tsx,json,yml,yaml,toml,html,css,scss}]
+indent_size = 2
+
+# ── Markdown (preserve trailing 2-space line breaks) ─────────────────────────
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+# ── Shell ────────────────────────────────────────────────────────────────────
+[*.sh]
+indent_size = 4
+
+# ── Makefile (MUST use tabs) ──────────────────────────────────────────────────
+[Makefile]
+indent_style = tab
+
+# ── Dockerfile ────────────────────────────────────────────────────────────────
+[Dockerfile]
+indent_size = 4
+
+# ── Batch / docs ──────────────────────────────────────────────────────────────
+[*.{bat,cmd}]
+end_of_line = crlf
+
+# ── Jupyter notebooks ────────────────────────────────────────────────────────
+[*.ipynb]
+indent_size = 4
