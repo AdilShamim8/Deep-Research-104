@@ -250,7 +250,7 @@ class AppSettings(BaseSettings):
 
     # App identity
     app_name: str = Field(default="deep-research-104", env="APP_NAME")
-    app_env: Literal["development", "staging", "production"] = Field(
+    app_env: Literal["development", "staging", "production", "test"] = Field(
         default="development", env="APP_ENV"
     )
     app_port: int = Field(default=8000, env="APP_PORT")
@@ -332,6 +332,10 @@ class AppSettings(BaseSettings):
     @property
     def is_staging(self) -> bool:
         return self.app_env == "staging"
+
+    @property
+    def is_test(self) -> bool:
+        return self.app_env == "test"
 
 
 # ── Cached nested config accessors ────────────────────────────────────────────
