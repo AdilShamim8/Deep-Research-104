@@ -31,32 +31,26 @@ class ModelConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", extra="ignore")
 
     # OpenAI / o-family
-    openai_api_key: str = Field(default="", env="OPENAI_API_KEY")
-    openai_org_id: str | None = Field(default=None, env="OPENAI_ORG_ID")
-    openai_default_model: str = Field(default="o3-mini", env="OPENAI_DEFAULT_MODEL")
-    openai_reasoning_model: str = Field(default="o3", env="OPENAI_REASONING_MODEL")
-    openai_reasoning_effort: Literal["low", "medium", "high"] = Field(
-        default="medium", env="OPENAI_REASONING_EFFORT"
-    )
-    openai_request_timeout: int = Field(default=120, env="OPENAI_REQUEST_TIMEOUT")
-    openai_max_retries: int = Field(default=3, env="OPENAI_MAX_RETRIES")
+    openai_api_key: str = Field(default="")
+    openai_org_id: str | None = Field(default=None)
+    openai_default_model: str = Field(default="o3-mini")
+    openai_reasoning_model: str = Field(default="o3")
+    openai_reasoning_effort: Literal["low", "medium", "high"] = Field(default="medium")
+    openai_request_timeout: int = Field(default=120)
+    openai_max_retries: int = Field(default=3)
 
     # DeepSeek
-    deepseek_api_key: str = Field(default="", env="DEEPSEEK_API_KEY")
-    deepseek_base_url: str = Field(default="https://api.deepseek.com/v1", env="DEEPSEEK_BASE_URL")
-    deepseek_reasoning_model: str = Field(
-        default="deepseek-reasoner", env="DEEPSEEK_REASONING_MODEL"
-    )
-    deepseek_request_timeout: int = Field(default=180, env="DEEPSEEK_REQUEST_TIMEOUT")
-    deepseek_max_retries: int = Field(default=3, env="DEEPSEEK_MAX_RETRIES")
+    deepseek_api_key: str = Field(default="")
+    deepseek_base_url: str = Field(default="https://api.deepseek.com/v1")
+    deepseek_reasoning_model: str = Field(default="deepseek-reasoner")
+    deepseek_request_timeout: int = Field(default=180)
+    deepseek_max_retries: int = Field(default=3)
 
     # Local deployment
-    local_model_path: str = Field(default="./models", env="LOCAL_MODEL_PATH")
-    local_model_type: Literal["ollama", "vllm", "llamacpp"] = Field(
-        default="ollama", env="LOCAL_MODEL_TYPE"
-    )
-    ollama_base_url: str = Field(default="http://localhost:11434", env="OLLAMA_BASE_URL")
-    ollama_model: str = Field(default="deepseek-r1:7b", env="OLLAMA_MODEL")
+    local_model_path: str = Field(default="./models")
+    local_model_type: Literal["ollama", "vllm", "llamacpp"] = Field(default="ollama")
+    ollama_base_url: str = Field(default="http://localhost:11434")
+    ollama_model: str = Field(default="deepseek-r1:7b")
 
     @field_validator("openai_api_key", "deepseek_api_key")
     @classmethod
@@ -79,18 +73,16 @@ class SearchConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore")
 
-    serpapi_key: str = Field(default="", env="SERPAPI_KEY")
-    brave_search_api_key: str = Field(default="", env="BRAVE_SEARCH_API_KEY")
-    bing_search_api_key: str = Field(default="", env="BING_SEARCH_API_KEY")
+    serpapi_key: str = Field(default="")
+    brave_search_api_key: str = Field(default="")
+    bing_search_api_key: str = Field(default="")
 
-    max_search_results: int = Field(default=10, env="MAX_SEARCH_RESULTS")
-    search_timeout_seconds: int = Field(default=15, env="SEARCH_TIMEOUT_SECONDS")
-    max_content_length: int = Field(default=8000, env="MAX_CONTENT_LENGTH")
+    max_search_results: int = Field(default=10)
+    search_timeout_seconds: int = Field(default=15)
+    max_content_length: int = Field(default=8000)
 
     # Search engine priority
-    search_provider: Literal["serpapi", "brave", "bing", "duckduckgo"] = Field(
-        default="duckduckgo", env="SEARCH_PROVIDER"
-    )
+    search_provider: Literal["serpapi", "brave", "bing", "duckduckgo"] = Field(default="duckduckgo")
 
     @field_validator("max_search_results")
     @classmethod
@@ -116,24 +108,24 @@ class ReasoningConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", extra="ignore")
 
     # Token budgets
-    max_tokens_per_request: int = Field(default=128_000, env="MAX_TOKENS_PER_REQUEST")
-    reasoning_budget: int = Field(default=32_768, env="REASONING_BUDGET")
-    max_output_tokens: int = Field(default=8_192, env="MAX_OUTPUT_TOKENS")
+    max_tokens_per_request: int = Field(default=128_000)
+    reasoning_budget: int = Field(default=32_768)
+    max_output_tokens: int = Field(default=8_192)
 
     # Sampling
-    parallel_samples: int = Field(default=3, env="PARALLEL_SAMPLES")
-    sequential_steps: int = Field(default=5, env="SEQUENTIAL_STEPS")
-    temperature: float = Field(default=0.7, env="TEMPERATURE")
-    top_p: float = Field(default=0.9, env="TOP_P")
+    parallel_samples: int = Field(default=3)
+    sequential_steps: int = Field(default=5)
+    temperature: float = Field(default=0.7)
+    top_p: float = Field(default=0.9)
 
     # Tree of Thoughts
-    tot_branching_factor: int = Field(default=3, env="TOT_BRANCHING_FACTOR")
-    tot_max_depth: int = Field(default=4, env="TOT_MAX_DEPTH")
-    tot_beam_width: int = Field(default=2, env="TOT_BEAM_WIDTH")
+    tot_branching_factor: int = Field(default=3)
+    tot_max_depth: int = Field(default=4)
+    tot_beam_width: int = Field(default=2)
 
     # Research loop
-    max_research_iterations: int = Field(default=5, env="MAX_RESEARCH_ITERATIONS")
-    max_search_per_iteration: int = Field(default=3, env="MAX_SEARCH_PER_ITERATION")
+    max_research_iterations: int = Field(default=5)
+    max_search_per_iteration: int = Field(default=3)
 
     @field_validator("temperature")
     @classmethod
@@ -165,14 +157,14 @@ class SecurityConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore")
 
-    api_key_header: str = Field(default="x-api-key", env="API_KEY_HEADER")
-    jwt_secret: str = Field(default="", env="JWT_SECRET")
-    jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
-    jwt_expire_minutes: int = Field(default=60, env="JWT_EXPIRE_MINUTES")
-    allowed_origins: str = Field(default="https://deepresearch.space-z.ai", env="ALLOWED_ORIGINS")
-    rate_limit_rpm: int = Field(default=60, env="RATE_LIMIT_RPM")
-    rate_limit_burst: int = Field(default=10, env="RATE_LIMIT_BURST")
-    request_max_body_bytes: int = Field(default=1_048_576, env="REQUEST_MAX_BODY_BYTES")
+    api_key_header: str = Field(default="x-api-key")
+    jwt_secret: str = Field(default="")
+    jwt_algorithm: str = Field(default="HS256")
+    jwt_expire_minutes: int = Field(default=60)
+    allowed_origins: str = Field(default="https://deepresearch.space-z.ai")
+    rate_limit_rpm: int = Field(default=60)
+    rate_limit_burst: int = Field(default=10)
+    request_max_body_bytes: int = Field(default=1_048_576)
 
     @property
     def allowed_origins_list(self) -> list[str]:
@@ -200,10 +192,10 @@ class ObservabilityConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="", extra="ignore")
 
-    prometheus_enabled: bool = Field(default=True, env="PROMETHEUS_ENABLED")
-    otel_exporter_otlp_endpoint: str = Field(default="", env="OTEL_EXPORTER_OTLP_ENDPOINT")
-    otel_service_name: str = Field(default="deep-research-104", env="OTEL_SERVICE_NAME")
-    sentry_dsn: str = Field(default="", env="SENTRY_DSN")
+    prometheus_enabled: bool = Field(default=True)
+    otel_exporter_otlp_endpoint: str = Field(default="")
+    otel_service_name: str = Field(default="deep-research-104")
+    sentry_dsn: str = Field(default="")
 
 
 # ── Storage ──────────────────────────────────────────────────────────────────
@@ -216,11 +208,8 @@ class StorageConfig(BaseSettings):
 
     database_url: str = Field(
         default="postgresql+asyncpg://deep:deep@localhost:5432/deep_research",
-        env="DATABASE_URL",
     )
-    storage_backend: Literal["postgres", "sqlite", "memory"] = Field(
-        default="memory", env="STORAGE_BACKEND"
-    )
+    storage_backend: Literal["postgres", "sqlite", "memory"] = Field(default="memory")
 
 
 # ── Master settings ──────────────────────────────────────────────────────────
@@ -237,21 +226,19 @@ class AppSettings(BaseSettings):
     )
 
     # App identity
-    app_name: str = Field(default="deep-research-104", env="APP_NAME")
-    app_env: Literal["development", "staging", "production", "test"] = Field(
-        default="development", env="APP_ENV"
-    )
-    app_port: int = Field(default=8000, env="APP_PORT")
-    app_workers: int = Field(default=4, env="APP_WORKERS")
+    app_name: str = Field(default="deep-research-104")
+    app_env: Literal["development", "staging", "production", "test"] = Field(default="development")
+    app_port: int = Field(default=8000)
+    app_workers: int = Field(default=4)
 
-    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO", env="LOG_LEVEL")
-    redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
-    redis_password: str = Field(default="", env="REDIS_PASSWORD")
-    redis_max_connections: int = Field(default=50, env="REDIS_MAX_CONNECTIONS")
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
+    redis_url: str = Field(default="redis://localhost:6379/0")
+    redis_password: str = Field(default="")
+    redis_max_connections: int = Field(default=50)
 
     # Build / release metadata
-    build_date: str = Field(default="2026-10-17", env="BUILD_DATE")
-    version: str = Field(default="1.0.0", env="APP_VERSION")
+    build_date: str = Field(default="2026-10-17")
+    version: str = Field(default="1.0.0")
 
     # Nested configs — cached via lru_cache below
     @property
