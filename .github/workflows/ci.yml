@@ -1,0 +1,170 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Deep Research 104 — CI pipeline
+# Runs lint, type-check, tests, and Docker build on every push + PR.
+# Last verified: 17 October 2026
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Cancel superseded runs on the same PR/branch
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+
+  # ── Lint + type-check ─────────────────────────────────────────────────────
+  lint:
+    name: Lint & type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install lint deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black mypy types-PyYAML types-redis
+
+      - name: Ruff check
+        run: ruff check src config tests
+
+      - name: Ruff format check
+        run: ruff format --check src config tests
+
+      - name: Black check
+        run: black --check src config tests
+
+      - name: mypy (best-effort, continue-on-error)
+        run: mypy src || true
+
+  # ── Tests ─────────────────────────────────────────────────────────────────
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12"]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      - name: Run unit tests
+        env:
+          APP_ENV: test
+          REDIS_URL: ""  # force in-memory
+        run: |
+          pytest tests/ \
+            -v \
+            --tb=short \
+            --cov=src \
+            --cov=config \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            -m "not slow and not integration"
+
+      - name: Upload coverage
+        if: matrix.python == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  # ── Docker build smoke ──────────────────────────────────────────────────
+  docker-build:
+    name: Docker build (production)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build production image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: production
+          push: false
+          tags: deep-research-104:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke-test the image
+        run: |
+          docker run --rm -d --name dr-test -p 8000:8000 \
+            -e APP_ENV=development \
+            -e REDIS_URL="" \
+            deep-research-104:ci
+          sleep 8
+          curl -fsS http://localhost:8000/health | head -c 200
+          echo
+          docker stop dr-test
+
+  # ── Security scan ─────────────────────────────────────────────────────────
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+
+      - name: Audit dependencies
+        run: pip-audit -r requirements.txt --strict --ignore-vuln GHSA-xxxx
+        continue-on-error: true  # don't fail CI on advisory noise
+
+      - name: Scan for secrets (Trufflehog)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: .
+          extra_args: --only-verified
+        continue-on-error: true
+
+  # ── Aggregate job (used as required-status-check) ──────────────────────
+  ci-pass:
+    name: CI pass
+    runs-on: ubuntu-latest
+    needs: [lint, test, docker-build, security]
+    steps:
+      - run: echo "All CI jobs passed."
