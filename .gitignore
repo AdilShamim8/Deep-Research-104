@@ -99,7 +99,8 @@ faiss.index
 *.faiss
 
 # ── Model artifacts (do not commit large weights) ────────────────────────────
-models/
+/models/
+/models
 *.bin
 *.safetensors
 *.gguf
