@@ -51,4 +51,4 @@ pyyaml>=6.0.1,<7.0
 
 # ── Type stubs (optional, aid mypy) ─────────────────────────────────────────
 types-PyYAML>=6.0.0
-types-redis>=4.0.0
+types-redis>=4.6.0.20241004
