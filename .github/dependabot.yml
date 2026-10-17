@@ -1,0 +1,84 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Dependabot — automated dependency updates
+# Docs: https://docs.github.com/en/code-security/dependabot
+# Last verified: 17 October 2026
+# ──────────────────────────────────────────────────────────────────────────────
+
+version: 2
+
+updates:
+
+  # ── Python dependencies (pip) ──────────────────────────────────────────────
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Dhaka
+    open-pull-requests-limit: 5
+    target-branch: main
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      # Bundle minor/patch updates so we get one PR per ecosystem
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
+    ignore:
+      # Major versions get their own PRs; ignore pre-release tags
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    reviewers:
+      - "AdilShamim8"
+    assignees:
+      - "AdilShamim8"
+
+  # ── GitHub Actions dependencies ───────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Dhaka
+    open-pull-requests-limit: 3
+    target-branch: main
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    reviewers:
+      - "AdilShamim8"
+    assignees:
+      - "AdilShamim8"
+
+  # ── Docker base image dependencies ────────────────────────────────────────
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: monthly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Dhaka
+    open-pull-requests-limit: 1
+    target-branch: main
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    reviewers:
+      - "AdilShamim8"
+    assignees:
+      - "AdilShamim8"
