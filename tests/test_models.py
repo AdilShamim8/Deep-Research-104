@@ -127,47 +127,44 @@ class TestOpenAIModel:
         mock_response.usage.completion_tokens = 5
         mock_response.usage.total_tokens = 15
 
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
-            model = OpenAIModel("gpt-4o")
-            model._client.chat.completions.create = AsyncMock(
+        model = OpenAIModel("gpt-4o", api_key="test-key")
+        model._client.chat.completions.create = AsyncMock(
                 return_value=mock_response
-            )
+        )
 
-            response = await model.generate(
-                messages=[{"role": "user", "content": "Hi"}],
-                config=GenerationConfig(max_tokens=100),
-            )
+        response = await model.generate(
+            messages=[{"role": "user", "content": "Hi"}],
+            config=GenerationConfig(max_tokens=100),
+        )
 
-            assert response.content == "Test answer"
-            assert response.total_tokens == 15
+        assert response.content == "Test answer"
+        assert response.total_tokens == 15
 
     async def test_o_series_system_message_conversion(self):
         """Test that system messages are converted for o-series models."""
         from src.models.openai_models import OpenAIModel
 
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
-            model = OpenAIModel("o3-mini")
-            messages = [
-                {"role": "system", "content": "Be helpful."},
-                {"role": "user", "content": "Hello"},
-            ]
-            prepared = model._prepare_messages(messages)
+        model = OpenAIModel("o3-mini", api_key="test-key")
+        messages = [
+            {"role": "system", "content": "Be helpful."},
+            {"role": "user", "content": "Hello"},
+        ]
+        prepared = model._prepare_messages(messages)
 
-            # System message should be merged into user message
-            assert not any(m["role"] == "system" for m in prepared)
-            assert any(
-                "Be helpful." in m["content"]
-                for m in prepared if m["role"] == "user"
-            )
+        # System message should be merged into user message
+        assert not any(m["role"] == "system" for m in prepared)
+        assert any(
+            "Be helpful." in m["content"]
+            for m in prepared if m["role"] == "user"
+        )
 
     async def test_validate_messages_overflow(self):
         """Test that token overflow raises ValueError."""
         from src.models.openai_models import OpenAIModel
 
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
-            model = OpenAIModel("gpt-4o")
-            huge_messages = [
-                {"role": "user", "content": "word " * 200_000}
-            ]
-            with pytest.raises(ValueError, match="exceed context limit"):
-                model.validate_messages(huge_messages)
+        model = OpenAIModel("gpt-4o", api_key="test-key")
+        huge_messages = [
+            {"role": "user", "content": "word " * 200_000}
+        ]
+        with pytest.raises(ValueError, match="exceed context limit"):
+            model.validate_messages(huge_messages)
