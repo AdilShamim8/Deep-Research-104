@@ -163,7 +163,7 @@ class SearchAggregator:
 
         logger.info(
             f"Aggregating {len(all_results)} results "
-            f"from {len(search_responses)} searches for query {query!r[:80]}"
+            f"from {len(search_responses)} searches for query {query[:80]!r}"
         )
 
         deduped = self._deduplicate(all_results)
