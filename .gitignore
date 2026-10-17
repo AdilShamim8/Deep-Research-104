@@ -1,0 +1,141 @@
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ── Virtual environments ────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+
+# ── Testing & coverage ──────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.cache/
+
+# ── Type checkers ───────────────────────────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# ── Jupyter ──────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+*.ipynb_checkpoints
+notebooks/.ipynb_checkpoints/
+
+# ── IDEs ─────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# ── Environment & secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+.env.local
+.env.production
+.env.staging
+*.pem
+*.key
+*.crt
+*.p12
+secrets.yml
+secrets.yaml
+credentials.json
+
+# ── Logs & runtime data ──────────────────────────────────────────────────────
+logs/
+*.log
+*.log.*
+*.pid
+*.seed
+*.pid.lock
+
+# ── Caches ──────────────────────────────────────────────────────────────────
+.cache/
+.diskcache/
+*.cache
+faiss.index
+*.faiss
+
+# ── Model artifacts (do not commit large weights) ────────────────────────────
+models/
+*.bin
+*.safetensors
+*.gguf
+*.ggml
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.h5
+wandb/
+mlruns/
+
+# ── Build & publish ──────────────────────────────────────────────────────────
+*.tar.gz
+*.whl
+.eggs/
+pip-wheel-metadata/
+
+# ── Docker ───────────────────────────────────────────────────────────────────
+.docker/
+docker-compose.override.yml
+
+# ── Operational data ────────────────────────────────────────────────────────
+data/
+data_cache/
+uploads/
+tmp/
+temp/
+*.tmp
+
+# ── Local databases ──────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ── CI/CD artifacts ──────────────────────────────────────────────────────────
+.artifacts/
+.github/_build/
