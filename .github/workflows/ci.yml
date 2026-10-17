@@ -80,6 +80,12 @@ jobs:
         env:
           APP_ENV: test
           REDIS_URL: ""
+          # Disable Rich's color output so CLI tests see plain text in
+          # help output. (Tests already strip ANSI, but this is a
+          # belt-and-braces safeguard.)
+          NO_COLOR: "1"
+          FORCE_COLOR: "0"
+          TERM: dumb
         run: |
           pytest tests/ \
             -v \
@@ -125,12 +131,26 @@ jobs:
           docker run --rm -d --name dr-test -p 8000:8000 \
             -e APP_ENV=development \
             -e REDIS_URL="" \
+            -e NO_COLOR=1 \
+            -e FORCE_COLOR=0 \
+            -e TERM=dumb \
             deep-research-104:ci
-          sleep 10
-          curl -fsS http://localhost:8000/health | head -c 200 || \
-            (docker logs dr-test; exit 1)
-          echo
+          # Wait up to 30s for the app to boot (it has to install +
+          # start uvicorn, which can take a few seconds in a cold container)
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health > /tmp/health.json 2>/dev/null; then
+              echo "Health check OK after ${i}s:"
+              cat /tmp/health.json
+              echo
+              docker stop dr-test || true
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "App did not become healthy within 30s; dumping logs:"
+          docker logs dr-test
           docker stop dr-test || true
+          exit 1
 
   # ── Security scan ─────────────────────────────────────────────────────────
   security:
