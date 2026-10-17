@@ -1,0 +1,98 @@
+# ── Version control ──────────────────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+.github
+.gitlab-ci.yml
+
+# ── Python caches & build artifacts ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+wheels/
+*.whl
+
+# ── Virtual environments ─────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# ── Testing & linting ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+coverage.xml
+
+# ── IDE / editor ─────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ── Notebooks ─────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+notebooks/
+
+# ── Secrets & environment (NEVER bake into image) ───────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets.yml
+secrets.yaml
+credentials.json
+
+# ── Logs & runtime ────────────────────────────────────────────────────────────
+logs/
+*.log
+*.log.*
+*.pid
+*.seed
+
+# ── Caches & local data ──────────────────────────────────────────────────────
+.cache/
+.diskcache/
+data/
+uploads/
+tmp/
+temp/
+*.tmp
+
+# ── Model weights (downloaded at runtime, not baked in) ─────────────────────
+models/
+*.bin
+*.safetensors
+*.gguf
+*.ggml
+*.pt
+*.pth
+*.onnx
+wandb/
+mlruns/
+
+# ── Documentation (not needed inside image) ──────────────────────────────────
+README.md
+Tutorial-104.md
+*.md
+docs/
+LICENSE
+
+# ── CI / CD ──────────────────────────────────────────────────────────────────
+.artifacts/
