@@ -15,6 +15,8 @@ The model outputs special tags:
   <answer>final answer here</answer>   -> final response
 
 This creates a fully agentic research loop.
+
+Date tag: 17 October 2026.
 """
 
 import re
@@ -59,7 +61,7 @@ WORKFLOW EXAMPLE:
 The user is asking about X. I need to find current information about Y.
 Let me search for that.
 </think>
-<search>current Y statistics 2024</search>
+<search>current Y statistics 2026</search>
 [Search results will appear here]
 <think>
 The results show... I should also check Z. Let me search.
