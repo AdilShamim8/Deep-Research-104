@@ -1,28 +1,60 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Deep Research 104 — Prometheus scrape + alert config
+# Reference metrics exposed by the API at /metrics:
+#   deep_research_requests_total{method,endpoint,status_code}      Counter
+#   deep_research_request_duration_seconds{endpoint}               Histogram
+#   deep_research_tokens_total{model,type}                         Counter
+#   deep_research_inflight_requests                                 Gauge
+# Last verified: 17 October 2026
+# ──────────────────────────────────────────────────────────────────────────────
+
 global:
-  scrape_interval:     15s
+  scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    monitor: 'deep-research'
+    monitor: "deep-research-104"
+    env: "production"
+    service: "deep-research-api"
 
-scrape_configs:
+# ── Alert rules (kept inline; pull out into rule_files when this grows) ──────
+rule_files: []
 
-  - job_name: 'deep-research-api'
-    static_configs:
-      - targets: ['api:8000']
-    metrics_path: /metrics
-    scrape_interval: 10s
-
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis:6379']
-
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-
+# ── Alertmanager (optional; safe defaults) ──────────────────────────────────
 alerting:
   alertmanagers:
     - static_configs:
         - targets: []
 
-rule_files: []
+# ── Scrape configs ────────────────────────────────────────────────────────────
+scrape_configs:
+
+  # ── Deep Research API itself ───────────────────────────────────────────────
+  - job_name: "deep-research-api"
+    metrics_path: /metrics
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    static_configs:
+      - targets: ["api:8000"]
+        labels:
+          service: "deep-research-api"
+    # Tag with relabeling for nicer Grafana legend labels
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: service
+        replacement: "deep-research-api"
+
+  # ── Redis (optional; needs redis_exporter sidecar in production) ────────────
+  - job_name: "redis"
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+        labels:
+          service: "redis"
+
+  # ── Prometheus self-monitoring ──────────────────────────────────────────────
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          service: "prometheus"
