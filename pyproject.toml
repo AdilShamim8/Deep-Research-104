@@ -1,0 +1,185 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Deep Research 104 — PEP 517/518 build configuration
+# Replaces legacy setup.py with modern declarative metadata.
+# Build: pip install -e .[dev]    |    Build sdist: python -m build
+# ──────────────────────────────────────────────────────────────────────────────
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel>=0.42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deep-research-104"
+version = "1.0.0"
+description = "Production-grade Deep Research AI with web search, reasoning models, and inference-time scaling."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [
+    { name = "Adil Shamim", email = "adilshamim8@users.noreply.github.com" },
+]
+keywords = [
+    "deep-research",
+    "reasoning-models",
+    "openai-o3",
+    "deepseek-r1",
+    "chain-of-thought",
+    "tree-of-thoughts",
+    "inference-scaling",
+    "web-search",
+    "fastapi",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Framework :: FastAPI",
+    "Typing :: Typed",
+]
+
+# Runtime dependencies — keep lean; extras hold optional heavy ML stacks.
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.0",
+    "httpx>=0.27.0",
+    "openai>=1.30.0",
+    "tiktoken>=0.7.0",
+    "tenacity>=8.3.0",
+    "redis>=5.0.0",
+    "loguru>=0.7.0",
+    "prometheus-client>=0.20.0",
+    "beautifulsoup4>=4.12.0",
+    "trafilatura>=1.9.0",
+    "duckduckgo-search>=5.3.0",
+    "python-dotenv>=1.0.0",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "pyyaml>=6.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "pytest-timeout>=2.3.0",
+    "httpx>=0.27.0",
+    "black>=24.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.9.0",
+    "pre-commit>=3.7.0",
+    "types-PyYAML",
+    "types-redis",
+]
+training = [
+    "torch>=2.2.0",
+    "transformers>=4.40.0",
+    "trl>=0.8.6",
+    "peft>=0.10.0",
+    "datasets>=2.19.0",
+    "accelerate>=0.29.0",
+    "bitsandbytes>=0.43.0",
+    "scikit-learn>=1.4.0",
+    "numpy>=1.26.0",
+    "pandas>=2.2.0",
+    "faiss-cpu>=1.8.0",
+]
+local = [
+    "ollama>=0.1.9",
+    "llama-cpp-python>=0.2.57",
+    "vllm>=0.4.2",
+]
+search = [
+    "serpapi>=0.1.5",
+    "brave-search>=0.1.0",
+    "playwright>=1.44.0",
+    "newspaper3k>=0.2.8",
+    "readability-lxml>=0.8.1",
+]
+observability = [
+    "opentelemetry-sdk>=1.24.0",
+    "opentelemetry-instrumentation-fastapi>=0.45b0",
+    "sentry-sdk[fastapi]>=2.0.0",
+]
+storage = [
+    "sqlalchemy>=2.0",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    "diskcache>=5.6.0",
+]
+
+[project.scripts]
+deep-research = "src.cli.app:main"
+deep-research-train = "src.training.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/AdilShamim8/Deep-Research-104"
+Repository = "https://github.com/AdilShamim8/Deep-Research-104"
+Documentation = "https://github.com/AdilShamim8/Deep-Research-104/blob/main/Tutorial-104.md"
+Issues = "https://github.com/AdilShamim8/Deep-Research-104/issues"
+
+# ── Tooling ──────────────────────────────────────────────────────────────────
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "config*"]
+exclude = ["tests*", "notebooks*", "scripts*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = '\.pyi?$'
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "config", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",     # pycodestyle / pyflakes
+    "I",                # isort
+    "B",                # bugbear
+    "C4",               # comprehensions
+    "UP",               # pyupgrade
+    "SIM",              # simplify
+    "RUF",              # ruff-specific
+]
+ignore = ["E501"]       # line length handled by black
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks integration tests requiring external services",
+    "unit: marks pure unit tests",
+]
+
+[tool.coverage.run]
+source = ["src", "config"]
+branch = true
+omit = ["tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
