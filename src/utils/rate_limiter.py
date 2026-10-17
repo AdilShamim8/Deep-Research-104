@@ -66,12 +66,19 @@ DEFAULT_LIMITS: dict[str, Limit] = {
 
 
 def _get_limits(model: str) -> Limit:
-    """Look up limits for a model with prefix fallback."""
+    """Look up limits for a model with prefix fallback.
+
+    Iterates prefixes from longest to shortest so that 'o3-mini-2025-01-31'
+    matches 'o3-mini' rather than 'o3'.
+    """
     if model in DEFAULT_LIMITS:
         return DEFAULT_LIMITS[model]
-    for prefix, limit in DEFAULT_LIMITS.items():
+    # Sort by length descending so the most specific prefix wins
+    for prefix in sorted(DEFAULT_LIMITS.keys(), key=len, reverse=True):
+        if prefix == "default":
+            continue
         if model.startswith(prefix):
-            return limit
+            return DEFAULT_LIMITS[prefix]
     return DEFAULT_LIMITS["default"]
 
 

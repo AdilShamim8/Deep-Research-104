@@ -86,25 +86,29 @@ class AggregatedResult:
 
 
 # ── Domain reputation tables ──────────────────────────────────────────────────
+# Values are MULTIPLIERS applied to the base relevance score.
+#   > 1.0 boosts (trusted sources rank higher than random)
+#   < 1.0 penalizes (low-quality sources rank lower)
+# Final score is clamped to [0.0, 1.0] at the end.
 
 TRUSTED_DOMAINS: dict[str, float] = {
-    "wikipedia.org": 0.9,
-    "arxiv.org": 0.95,
-    "pubmed.ncbi.nlm.nih.gov": 0.95,
-    "nature.com": 0.9,
-    "science.org": 0.9,
-    "github.com": 0.85,
-    "stackoverflow.com": 0.8,
-    "docs.python.org": 0.85,
-    "developer.mozilla.org": 0.85,
-    "nytimes.com": 0.75,
-    "bbc.com": 0.75,
-    "reuters.com": 0.8,
-    "apnews.com": 0.8,
-    "economist.com": 0.75,
-    "ieee.org": 0.9,
-    "acm.org": 0.9,
-    "dartmouth.edu": 0.85,  # +other .edu domains handled below
+    "arxiv.org": 1.15,
+    "pubmed.ncbi.nlm.nih.gov": 1.15,
+    "nature.com": 1.10,
+    "science.org": 1.10,
+    "ieee.org": 1.10,
+    "acm.org": 1.10,
+    "wikipedia.org": 1.08,
+    "github.com": 1.08,
+    "stackoverflow.com": 1.05,
+    "docs.python.org": 1.08,
+    "developer.mozilla.org": 1.08,
+    "nytimes.com": 1.05,
+    "bbc.com": 1.05,
+    "reuters.com": 1.07,
+    "apnews.com": 1.07,
+    "economist.com": 1.05,
+    "dartmouth.edu": 1.05,  # +other .edu domains handled below
 }
 
 LOW_QUALITY_DOMAINS: frozenset[str] = frozenset(
@@ -210,7 +214,7 @@ class SearchAggregator:
             top_n = min(self.max_results_to_fetch, len(scored))
             urls = [r.url for r in scored[:top_n]]
             contents = await self._extractor.extract_many(urls)
-            for agg_result, content in zip(scored[:top_n], contents, strict=False):
+            for agg_result, content in zip(scored[:top_n], contents):
                 if content.success:
                     agg_result.content = content
 
@@ -330,7 +334,12 @@ class SearchAggregator:
         result: SearchResult,
         query_terms: set[str],
     ) -> float:
-        """Multi-factor relevance score in [0.0, 1.0]."""
+        """Multi-factor relevance score in [0.0, 1.0].
+
+        Multipliers > 1.0 boost (trusted sources rank higher than
+        random ones); < 1.0 penalize (low-quality sources rank lower).
+        The final score is clamped to [0.0, 1.0].
+        """
         score = 0.0
 
         # 1. Position score (earlier = more relevant per search engine)
@@ -346,22 +355,22 @@ class SearchAggregator:
         else:
             score += 0.4
 
-        # 3. Domain quality boost/penalty
+        # 3. Domain quality multiplier (boost > 1.0 for trusted, < 1.0 for low)
         domain = (result.domain or "").lower()
-        domain_boost = 1.0
-        for trusted_domain, boost in TRUSTED_DOMAINS.items():
+        domain_multiplier = 1.0
+        for trusted_domain, multiplier in TRUSTED_DOMAINS.items():
             if trusted_domain in domain:
-                domain_boost = boost
+                domain_multiplier = multiplier
                 break
         else:
             # .edu / .gov get a mild boost
             if domain.endswith(".edu") or domain.endswith(".gov"):
-                domain_boost = 0.85
+                domain_multiplier = 1.05
         for low_domain in LOW_QUALITY_DOMAINS:
             if low_domain in domain:
-                domain_boost = 0.5
+                domain_multiplier = 0.5
                 break
-        score *= domain_boost
+        score *= domain_multiplier
 
         # 4. Snippet quality (length as proxy, capped at 30 words)
         snippet_len = len(result.snippet.split())

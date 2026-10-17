@@ -141,14 +141,18 @@ def _get_encoding(encoding_name: str) -> tiktoken.Encoding:
 
 
 def _encoding_for_model(model: str) -> tiktoken.Encoding:
-    """Resolve the encoding for a model name, with prefix fallback."""
+    """Resolve the encoding for a model name, with prefix fallback.
+
+    Iterates prefixes from longest to shortest so 'o3-mini-2025-01-31'
+    matches 'o3-mini' rather than 'o3'.
+    """
     # Exact match first
     if model in MODEL_ENCODING_MAP:
         return _get_encoding(MODEL_ENCODING_MAP[model])
-    # Prefix fallback (e.g. "o3-mini-2025-01-31" -> "o3-mini")
-    for prefix, encoding in MODEL_ENCODING_MAP.items():
+    # Prefix fallback — longest prefix wins (most specific match)
+    for prefix in sorted(MODEL_ENCODING_MAP.keys(), key=len, reverse=True):
         if model.startswith(prefix):
-            return _get_encoding(encoding)
+            return _get_encoding(MODEL_ENCODING_MAP[prefix])
     # Default: cl100k_base (conservative)
     return _get_encoding("cl100k_base")
 
@@ -230,24 +234,27 @@ class TokenCounter:
     # ── Limit lookups ──────────────────────────────────────────────────────
 
     def get_context_limit(self, model: str | None = None) -> int:
-        """Get context window limit for a model."""
+        """Get context window limit for a model.
+
+        Longest matching prefix wins (so 'o3-mini-2025-01-31' resolves
+        to the limit for 'o3-mini', not 'o3').
+        """
         m = model or self.model
         if m in MODEL_CONTEXT_LIMITS:
             return MODEL_CONTEXT_LIMITS[m]
-        # Prefix fallback
-        for prefix, limit in MODEL_CONTEXT_LIMITS.items():
+        for prefix in sorted(MODEL_CONTEXT_LIMITS.keys(), key=len, reverse=True):
             if m.startswith(prefix):
-                return limit
+                return MODEL_CONTEXT_LIMITS[prefix]
         return 8_000  # conservative default
 
     def get_output_limit(self, model: str | None = None) -> int:
-        """Get max output tokens for a model."""
+        """Get max output tokens for a model (longest matching prefix wins)."""
         m = model or self.model
         if m in MODEL_OUTPUT_LIMITS:
             return MODEL_OUTPUT_LIMITS[m]
-        for prefix, limit in MODEL_OUTPUT_LIMITS.items():
+        for prefix in sorted(MODEL_OUTPUT_LIMITS.keys(), key=len, reverse=True):
             if m.startswith(prefix):
-                return limit
+                return MODEL_OUTPUT_LIMITS[prefix]
         return 4_096
 
     # ── Fit-checking ──────────────────────────────────────────────────────

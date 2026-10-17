@@ -109,7 +109,8 @@ class TestFitsInContext:
 
     def test_oversized_messages_do_not_fit(self) -> None:
         c = TokenCounter("gpt-4o")
-        huge = "x" * 1_000_000
+        # 10M chars ≈ 1.25M tokens — way over any model's context limit
+        huge = "x" * 10_000_000
         msgs = [{"role": "user", "content": huge}]
         fits, _count, available = c.check_fits_in_context(msgs)
         assert not fits

@@ -21,27 +21,33 @@ from config.settings import (
 
 
 class TestDefaults:
-    def test_app_env_default_is_development(self) -> None:
+    def test_app_env_default_is_development(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("APP_ENV", raising=False)
         s = AppSettings()
         assert s.app_env == "development"
 
-    def test_log_level_default_is_info(self) -> None:
+    def test_log_level_default_is_info(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("LOG_LEVEL", raising=False)
         s = AppSettings()
         assert s.log_level == "INFO"
 
-    def test_app_port_default(self) -> None:
+    def test_app_port_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("APP_PORT", raising=False)
         s = AppSettings()
         assert s.app_port == 8000
 
-    def test_app_workers_default(self) -> None:
+    def test_app_workers_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("APP_WORKERS", raising=False)
         s = AppSettings()
         assert s.app_workers == 4
 
-    def test_build_date_default(self) -> None:
+    def test_build_date_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("BUILD_DATE", raising=False)
         s = AppSettings()
         assert s.build_date == "2026-10-17"
 
-    def test_version_default(self) -> None:
+    def test_version_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("APP_VERSION", raising=False)
         s = AppSettings()
         assert s.version == "1.0.0"
 
@@ -75,7 +81,8 @@ class TestEnvDriven:
 
 
 class TestFlags:
-    def test_is_development_true_in_dev(self) -> None:
+    def test_is_development_true_in_dev(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("APP_ENV", raising=False)
         s = AppSettings()
         assert s.is_development
         assert not s.is_production

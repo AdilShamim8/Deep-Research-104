@@ -111,13 +111,13 @@ class TestToTRequest:
 
     def test_branching_factor_bounds(self) -> None:
         with pytest.raises(ValidationError):
-            ToTRequest(problem="p", branching_factor=1)
+            ToTRequest(problem="solve puzzle", branching_factor=1)
         with pytest.raises(ValidationError):
-            ToTRequest(problem="p", branching_factor=7)
+            ToTRequest(problem="solve puzzle", branching_factor=7)
 
     def test_strategy_choices(self) -> None:
         for s in ["beam", "bfs", "dfs"]:
-            r = ToTRequest(problem="p", strategy=s)  # type: ignore
+            r = ToTRequest(problem="solve puzzle", strategy=s)  # type: ignore
             assert r.strategy == s
 
 

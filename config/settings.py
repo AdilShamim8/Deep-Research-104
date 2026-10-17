@@ -280,10 +280,14 @@ class AppSettings(BaseSettings):
 
     # ── Validators ────────────────────────────────────────────────────────────
 
-    @field_validator("app_env")
+    @field_validator("app_env", mode="before")
     @classmethod
     def _lower_env(cls, v: str) -> str:
-        return v.lower()
+        # Run before the Literal type check so 'PRODUCTION' becomes
+        # 'production' and passes the literal match.
+        if isinstance(v, str):
+            return v.lower()
+        return v
 
     @field_validator("app_workers")
     @classmethod

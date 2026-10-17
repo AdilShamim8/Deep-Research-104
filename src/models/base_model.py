@@ -168,11 +168,15 @@ PRICING_TABLE: dict[str, dict[str, float]] = {
 
 
 def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
-    """Estimate USD cost for a generation. Returns 0.0 for unknown models."""
+    """Estimate USD cost for a generation. Returns 0.0 for unknown models.
+
+    Longest matching prefix wins (so 'o3-mini-2025-01-31' resolves to
+    'o3-mini', not 'o3').
+    """
     pricing = PRICING_TABLE.get(model)
     if not pricing:
-        # Try a prefix match (e.g., "o3-mini-2025-01-31" -> "o3-mini")
-        for known in PRICING_TABLE:
+        # Try prefix match — longest prefix wins
+        for known in sorted(PRICING_TABLE.keys(), key=len, reverse=True):
             if model.startswith(known):
                 pricing = PRICING_TABLE[known]
                 break

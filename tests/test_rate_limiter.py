@@ -9,7 +9,6 @@ we exercise the actual lock + sleep paths.
 from __future__ import annotations
 
 import asyncio
-import time
 
 import pytest
 from src.utils.rate_limiter import (
@@ -28,7 +27,7 @@ class TestLimitLookup:
         assert limit.rpm == DEFAULT_LIMITS["o3-mini"].rpm
 
     def test_prefix_fallback(self) -> None:
-        # "o3-mini-2025-01-31" should match "o3-mini"
+        # "o3-mini-2025-01-31" should match "o3-mini" (longest prefix wins)
         limit = _get_limits("o3-mini-2025-01-31")
         assert limit.rpm == DEFAULT_LIMITS["o3-mini"].rpm
 
@@ -79,7 +78,7 @@ class TestAcquire:
     async def test_concurrent_acquires_use_per_model_lock(self) -> None:
         """Two concurrent acquires for the same model should serialize."""
         limiter = InProcessRateLimiter()
-        results = []
+        results: list[int] = []
 
         async def _acquire(idx: int) -> None:
             await limiter.acquire("o3-mini", estimated_tokens=1, timeout=1.0)
@@ -89,26 +88,19 @@ class TestAcquire:
         assert len(results) == 3
 
     @pytest.mark.asyncio
-    async def test_acquire_records_wait_time(self) -> None:
-        """A blocked acquire should increment the 'waited' metric."""
+    async def test_acquire_records_first_call(self) -> None:
+        """A first acquire should be tracked in the metrics dict."""
         limiter = InProcessRateLimiter()
-        # Override the limits for a test model to be very low
-        from src.utils import rate_limiter as rl
+        # Use a low-rpm test model so we exercise the limit logic
+        # — but only do one acquire so we don't actually wait 60s.
+        DEFAULT_LIMITS["__test_low__"] = Limit(rpm=1, tpm=1_000_000, burst=1)
 
-        rl.DEFAULT_LIMITS["__test_low__"] = Limit(rpm=1, tpm=1_000_000, burst=1)
-
-        # First acquire is instant (burst)
         await limiter.acquire("__test_low__", estimated_tokens=1, timeout=2.0)
-        # Second acquire should wait (RPM=1, burst=1)
-        # We use a short timeout to fail fast if it's not waiting
-        time.time()
-        # This would actually wait 60 seconds — too long for a unit test.
-        # Instead, just verify the metric is recorded after first acquire.
         metrics = limiter.metrics()
         assert metrics["__test_low__"]["acquired"] == 1
 
-        # Clean up the test limit
-        del rl.DEFAULT_LIMITS["__test_low__"]
+        # Clean up the test limit so we don't leak state across tests
+        DEFAULT_LIMITS.pop("__test_low__", None)
 
 
 # ── Multiple providers don't interfere ───────────────────────────────────────

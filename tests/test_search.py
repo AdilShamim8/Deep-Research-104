@@ -110,8 +110,9 @@ class TestAggregatorDedup:
         assert len(deduped) == 1
 
     def test_dedup_keeps_different_urls(self) -> None:
-        r1 = self._make_result("https://example.com/a")
-        r2 = self._make_result("https://example.com/b")
+        # Use distinct snippets so the Jaccard check doesn't trip
+        r1 = self._make_result("https://example.com/a", snippet="alpha content")
+        r2 = self._make_result("https://example.com/b", snippet="beta content")
         deduped = self.agg._deduplicate([r1, r2])
         assert len(deduped) == 2
 
