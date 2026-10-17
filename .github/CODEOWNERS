@@ -1,0 +1,34 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# CODEOWNERS — automatic review routing
+# Reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# Last verified: 17 October 2026
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Default: maintainer reviews everything that doesn't match a more specific rule
+*                           @AdilShamim8
+
+# ── Sensitive paths require the maintainer's explicit review ─────────────────
+/.github/                   @AdilShamim8
+/config/                    @AdilShamim8
+Dockerfile                  @AdilShamim8
+docker-compose.yml          @AdilShamim8
+requirements*.txt           @AdilShamim8
+pyproject.toml              @AdilShamim8
+.env.example                @AdilShamim8
+LICENSE                     @AdilShamim8
+CONTRIBUTING.md             @AdilShamim8
+SECURITY.md                 @AdilShamim8
+CHANGELOG.md                @AdilShamim8
+
+# ── Source modules — still reviewed by the maintainer for now ─────────────────
+/src/                       @AdilShamim8
+/src/api/                   @AdilShamim8
+/src/models/                @AdilShamim8
+/src/pipeline/              @AdilShamim8
+/src/reasoning/             @AdilShamim8
+/src/search/                @AdilShamim8
+/src/training/              @AdilShamim8
+/src/utils/                 @AdilShamim8
+
+# ── Tests ────────────────────────────────────────────────────────────────────
+/tests/                     @AdilShamim8
